@@ -237,7 +237,30 @@ textarea.input { height: auto; min-height: 80px; padding: 10px 12px; resize: ver
 .hide-mobile { }
 @media (max-width: 900px) { .hide-mobile { display: none; } .sticky-side { position: static; } }
 
+/* ---------- Splash Logo Animation ---------- */
+@keyframes splashScale {
+  0% { transform: scale(0.65); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes splashFloat {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-7px); }
+}
+@keyframes splashPulse {
+  0% { transform: scale(0.85); opacity: 0.35; }
+  100% { transform: scale(1.15); opacity: 0.65; }
+}
+@keyframes splashSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes splashBar {
+  0% { left: 0%; width: 25%; }
+  50% { width: 55%; }
+  100% { left: 60%; width: 40%; }
+}
+
 @media print {
-  .no-print, .mesh, .topbar, .footer.no-print { display: none !important; }
+  .no-print, .mesh, .topbar, .footer.no-print, .splash-overlay { display: none !important; }
   body { background: #fff; color: #000; }
 }

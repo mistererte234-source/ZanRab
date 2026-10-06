@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import { useStore } from "@/lib/store";
 import { PlanCanvas } from "@/components/PlanCanvas";
 import { ParamsEditor } from "@/components/ParamsEditor";
 import { RabView } from "@/components/RabView";
+import { SplashScreen } from "@/components/SplashScreen";
 import { computeRab, rupiah } from "@/lib/rab";
 import { defaultPriceDb } from "@/lib/pricing";
 import {
@@ -127,16 +129,39 @@ export default function Home() {
   }
 
   return (
-    <div className="shell col" style={{ gap: 20 }}>
-      {/* Top Bar Navigation */}
-      <header className="topbar">
-        <div className="brand">
-          <div className="brand-mark">Z</div>
-          <span>ZanRab</span>
-        </div>
-        <span className="badge blue hide-mobile">v1.0 iOS Glass Edition</span>
+    <>
+      <SplashScreen />
+      <div className="shell col" style={{ gap: 20 }}>
+        {/* Top Bar Navigation */}
+        <header className="topbar">
+          <div className="brand" style={{ cursor: "pointer" }} onClick={() => window.location.reload()} title="ZanRab">
+            <div
+              className="brand-logo-pod"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 11,
+                display: "grid",
+                placeItems: "center",
+                background: "linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05))",
+                border: "1px solid rgba(255, 255, 255, 0.25)",
+                boxShadow: "0 4px 14px rgba(0, 117, 177, 0.25)",
+                padding: 4,
+              }}
+            >
+              <Image
+                src="/zanrab_icon.svg"
+                alt="ZanRab Logo"
+                width={26}
+                height={26}
+                priority
+              />
+            </div>
+            <span style={{ fontSize: 19, letterSpacing: "-0.03em" }}>ZanRab</span>
+          </div>
+          <span className="badge blue hide-mobile">v1.0 iOS Glass Edition</span>
 
-        <div className="spacer" />
+          <div className="spacer" />
 
         <div className="row" style={{ gap: 8 }}>
           {projectList.length > 0 && currentProject && (
@@ -729,5 +754,6 @@ export default function Home() {
         </div>
       )}
     </div>
+    </>
   );
 }

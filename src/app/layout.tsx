@@ -4,6 +4,15 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "ZanRab — Estimasi RAB Denah AI untuk Kontraktor",
   description: "Aplikasi hitung RAB otomatis dari denah gambar dengan AI vision cerdas, engine deterministik, dan styling iOS glassmorphism.",
+  icons: {
+    icon: [
+      { url: "/zanrab_icon.svg", type: "image/svg+xml" },
+      { url: "/zanrab_icon.png", type: "image/png" },
+    ],
+    apple: [
+      { url: "/zanrab_icon.png" },
+    ],
+  },
 };
 
 export default function RootLayout({
