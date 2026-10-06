@@ -188,7 +188,7 @@ export function RabView({ project, rab, company, onUpdateProject }: RabViewProps
       {activeTab === "tabel" && (
         <div className="card glass" style={{ padding: 0, overflow: "hidden" }}>
           <div className="scroll-x">
-            <table className="table">
+            <table className="table rab-table">
               <thead>
                 <tr>
                   <th style={{ width: 40, textAlign: "center" }}>Act</th>
@@ -215,24 +215,24 @@ export function RabView({ project, rab, company, onUpdateProject }: RabViewProps
                           key={l.code}
                           className={`line ${isExcluded ? "excluded" : ""}`}
                         >
-                          <td style={{ textAlign: "center" }}>
+                          <td className="c-act" style={{ textAlign: "center" }}>
                             <input
                               type="checkbox"
                               checked={!isExcluded}
                               onChange={() => toggleExclude(l.code)}
                             />
                           </td>
-                          <td>
+                          <td className="c-desc">
                             <div style={{ fontWeight: 550 }}>{l.name}</div>
                             <div className="faint mono" style={{ fontSize: 11.5, display: "flex", alignItems: "center", gap: 4 }}>
                               <span style={{ color: "var(--accent)" }}>▪</span> {l.formula}
                             </div>
                           </td>
-                          <td className="num mono">{num(l.volume)}</td>
-                          <td style={{ textAlign: "center" }} className="muted">
+                          <td className="num mono c-vol">{num(l.volume)}</td>
+                          <td style={{ textAlign: "center" }} className="muted c-sat">
                             {l.unit}
                           </td>
-                          <td className="num">
+                          <td className="num c-price">
                             <input
                               type="text"
                               className={`cell-input ${isCustomPrice ? "changed" : ""}`}
@@ -240,13 +240,13 @@ export function RabView({ project, rab, company, onUpdateProject }: RabViewProps
                               onBlur={(e) => handlePriceChange(l.code, e.target.value)}
                             />
                           </td>
-                          <td className="num mono font-semibold">
+                          <td className="num mono font-semibold c-total">
                             {rupiah(l.total)}
                           </td>
                         </tr>
                       );
                     })}
-                    <tr style={{ background: "rgba(0,0,0,0.02)" }}>
+                    <tr className="subtotal" style={{ background: "rgba(0,0,0,0.02)" }}>
                       <td colSpan={5} style={{ textAlign: "right", fontWeight: 650 }}>
                         Subtotal {sec.code}
                       </td>
@@ -306,7 +306,7 @@ export function RabView({ project, rab, company, onUpdateProject }: RabViewProps
           {/* BOM Material Table */}
           <div className="card glass" style={{ padding: 0, overflow: "hidden" }}>
             <div className="scroll-x">
-              <table className="table">
+              <table className="table bom-table">
                 <thead>
                   <tr>
                     <th>Bahan Konstruksi</th>
@@ -320,11 +320,11 @@ export function RabView({ project, rab, company, onUpdateProject }: RabViewProps
                 <tbody>
                   {bom.items.map((item) => (
                     <tr key={item.code} className="line">
-                      <td>
+                      <td className="b-name">
                         <div style={{ fontWeight: 600 }}>{item.name}</div>
                         <div className="faint mono" style={{ fontSize: 11 }}>{item.code}</div>
                       </td>
-                      <td>
+                      <td className="b-cat">
                         <span
                           className="badge"
                           style={{
@@ -337,9 +337,9 @@ export function RabView({ project, rab, company, onUpdateProject }: RabViewProps
                           {item.category.replace("_", " ")}
                         </span>
                       </td>
-                      <td className="num mono font-semibold">{num(item.quantity)}</td>
-                      <td style={{ textAlign: "center" }} className="muted">{item.unit}</td>
-                      <td>
+                      <td className="num mono font-semibold b-qty">{num(item.quantity)}</td>
+                      <td style={{ textAlign: "center" }} className="muted b-sat">{item.unit}</td>
+                      <td className="b-pkg">
                         {item.commercialPackage ? (
                           <span
                             className="badge"
@@ -356,10 +356,10 @@ export function RabView({ project, rab, company, onUpdateProject }: RabViewProps
                           <span className="faint">-</span>
                         )}
                       </td>
-                      <td className="num mono font-semibold">{rupiah(item.estimatedCost)}</td>
+                      <td className="num mono font-semibold b-total">{rupiah(item.estimatedCost)}</td>
                     </tr>
                   ))}
-                  <tr style={{ background: "rgba(0,0,0,0.02)" }}>
+                  <tr className="subtotal" style={{ background: "rgba(0,0,0,0.02)" }}>
                     <td colSpan={5} style={{ textAlign: "right", fontWeight: 700 }}>
                       Total Anggaran Pembelian Material Terhitung:
                     </td>
