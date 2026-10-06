@@ -197,8 +197,9 @@ export default function Home() {
 
           <button
             type="button"
-            className="btn btn-sm row items-center"
+            className="btn btn-sm btn-demo row items-center"
             style={{ gap: 6 }}
+            title="Contoh Denah Kamal"
             onClick={async () => {
               const id = await createDemoProject();
               setActiveProjectId(id);
@@ -235,7 +236,7 @@ export default function Home() {
 
       {/* Main Workspace Body */}
       {!currentProject ? (
-        <div className="card glass col items-center" style={{ padding: 60, textAlign: "center", gap: 16 }}>
+        <div className="card glass col items-center" style={{ padding: "clamp(28px, 8vw, 60px) clamp(18px, 5vw, 60px)", textAlign: "center", gap: 16 }}>
           <div
             style={{
               width: 64,

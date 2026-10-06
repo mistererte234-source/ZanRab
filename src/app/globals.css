@@ -184,9 +184,9 @@ textarea.input { height: auto; min-height: 80px; padding: 10px 12px; resize: ver
 .editor .wall.sel { stroke: var(--orange); }
 .editor .room { fill: color-mix(in srgb, var(--teal) 16%, transparent); stroke: color-mix(in srgb, var(--teal) 60%, transparent); stroke-dasharray: 4 3; cursor: pointer; transition: fill 0.15s; }
 .editor .room:hover, .editor .room.sel { fill: color-mix(in srgb, var(--orange) 22%, transparent); }
-.editor .room-label { font-size: 11px; font-weight: 650; fill: #0b0b0f; paint-order: stroke; stroke: rgba(255,255,255,0.9); stroke-width: 3px; pointer-events: none; }
+.editor .room-label { font-weight: 650; fill: #0b0b0f; paint-order: stroke; stroke: rgba(255,255,255,0.9); stroke-width: 0.05; pointer-events: none; } /* ukuran font dari atribut SVG (satuan meter) */
 .editor .opening { cursor: pointer; }
-.editor .handle { fill: #fff; stroke: var(--orange); stroke-width: 2; cursor: grab; }
+.editor .handle { fill: #fff; stroke: var(--orange); stroke-width: 0.04; cursor: grab; }
 .editor .column { fill: #ff375f; opacity: 0.85; pointer-events: none; }
 
 .toolbar { display: flex; gap: 6px; flex-wrap: wrap; padding: 6px; border-radius: 14px; background: color-mix(in srgb, var(--text) 5%, transparent); }
@@ -236,6 +236,43 @@ textarea.input { height: auto; min-height: 80px; padding: 10px 12px; resize: ver
 .sticky-side { position: sticky; top: 90px; }
 .hide-mobile { }
 @media (max-width: 900px) { .hide-mobile { display: none; } .sticky-side { position: static; } }
+
+/* ---------- Utility (dipakai di komponen, sebelumnya belum didefinisikan) ---------- */
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.justify-end { justify-content: flex-end; }
+.text-center { text-align: center; }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
+.grid > * { min-width: 0; }
+.topbar { flex-wrap: wrap; }
+.topbar > .row { flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+@media (max-width: 900px) { .grid > * { grid-column: auto !important; } }
+
+/* ---------- Mobile ---------- */
+@media (max-width: 640px) {
+  .shell { padding: 10px 12px 32px; }
+  .card { padding: 16px; }
+  .topbar { flex-wrap: wrap; top: 6px; gap: 8px; padding: 8px 10px; margin-bottom: 6px; border-radius: 18px; }
+  .topbar > .row { flex: 1 1 auto; justify-content: flex-end; gap: 6px; min-width: 0; }
+  .topbar > .row:has(select) { flex-basis: 100%; }
+  .topbar > .row select { flex: 1 1 0; min-width: 0; max-width: none !important; }
+  .btn-demo { width: 32px; padding: 0; }
+  .btn-demo > span { display: none; }
+  .btn:not(.btn-sm):not(.btn-icon) { white-space: normal; height: auto; min-height: 40px; padding: 8px 14px; text-align: center; }
+  .segmented { display: flex; max-width: 100%; min-width: 0; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .segmented::-webkit-scrollbar { display: none; }
+  .segmented button { flex: 0 0 auto; white-space: nowrap; padding: 7px 12px; }
+  .h2 { font-size: 20px; }
+  .stat .value { font-size: 22px; }
+  /* cegah iOS auto-zoom saat fokus input (< 16px) */
+  .input, select.input, textarea.input, .cell-input { font-size: 16px; }
+  .scroll-x > .table { min-width: 680px; }
+  .backdrop { padding: 10px; }
+  .sheet { padding: 18px; max-height: 92dvh; }
+}
 
 /* ---------- Splash Logo Animation ---------- */
 @keyframes splashScale {
