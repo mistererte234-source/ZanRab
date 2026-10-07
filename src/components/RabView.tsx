@@ -7,7 +7,6 @@ import { exportRabXlsx } from "@/lib/export/xlsx";
 import { calculateBom } from "@/lib/bom";
 import {
   Table,
-  FileText,
   Download,
   Loader2,
   PieChart,
@@ -22,10 +21,14 @@ interface RabViewProps {
   rab: RabResult;
   company: Company;
   onUpdateProject: (patch: Partial<Project>) => void;
+  /** Paksa satu tampilan (mis. "surat" di langkah Penawaran) dan sembunyikan header/tab */
+  forcedTab?: "tabel" | "surat" | "bom" | "analisa";
 }
 
-export function RabView({ project, rab, company, onUpdateProject }: RabViewProps) {
-  const [activeTab, setActiveTab] = useState<"tabel" | "surat" | "bom" | "analisa">("tabel");
+export function RabView({ project, rab, company, onUpdateProject, forcedTab }: RabViewProps) {
+  const [tabState, setActiveTab] = useState<"tabel" | "bom" | "analisa">("tabel");
+  const activeTab: "tabel" | "surat" | "bom" | "analisa" = forcedTab ?? tabState;
+  const hideChrome = !!forcedTab;
   const [isExporting, setIsExporting] = useState(false);
 
   const bom = useMemo(() => calculateBom(rab), [rab]);
@@ -84,8 +87,9 @@ export function RabView({ project, rab, company, onUpdateProject }: RabViewProps
 
   return (
     <div className="col" style={{ gap: 16 }}>
+      {!hideChrome && (<>
       {/* Action Header & Tabs */}
-      <div className="row wrap justify-between items-center">
+      <div className="row wrap justify-between items-center" style={{ gap: 10 }}>
         <div className="segmented">
           <button
             type="button"
@@ -117,16 +121,6 @@ export function RabView({ project, rab, company, onUpdateProject }: RabViewProps
             <PieChart size={14} />
             <span>Proporsi Biaya</span>
           </button>
-          <button
-            type="button"
-            data-active={activeTab === "surat"}
-            onClick={() => setActiveTab("surat")}
-            className="row items-center"
-            style={{ gap: 6 }}
-          >
-            <FileText size={14} />
-            <span>Surat Penawaran</span>
-          </button>
         </div>
 
         <div className="row" style={{ gap: 8 }}>
@@ -155,7 +149,7 @@ export function RabView({ project, rab, company, onUpdateProject }: RabViewProps
             disabled={isExporting}
           >
             {isExporting ? <Loader2 size={15} className="pulse-dot" /> : <Download size={15} />}
-            <span>{isExporting ? "Menyiapkan File..." : "Export Excel (.xlsx)"}</span>
+            <span>{isExporting ? "Menyiapkan…" : "Export Excel"}</span>
           </button>
         </div>
       </div>
@@ -183,6 +177,7 @@ export function RabView({ project, rab, company, onUpdateProject }: RabViewProps
           <div className="faint">Luas Bangunan: {rab.grossArea} m²</div>
         </div>
       </div>
+      </>)}
 
       {/* Main Tab 1: Detailed Table */}
       {activeTab === "tabel" && (
@@ -459,9 +454,8 @@ export function RabView({ project, rab, company, onUpdateProject }: RabViewProps
       {/* Main Tab 2: Client Formal Proposal Document */}
       {activeTab === "surat" && (
         <div
-          className="card glass col"
+          className="card col offer-letter"
           style={{
-            padding: 36,
             background: "#fff",
             color: "#111",
             boxShadow: "var(--shadow-lg)",
@@ -471,10 +465,16 @@ export function RabView({ project, rab, company, onUpdateProject }: RabViewProps
         >
           {/* Header Surat */}
           <div className="row justify-between items-start" style={{ borderBottom: "2px solid #111", paddingBottom: 16 }}>
-            <div>
+            <div className="row" style={{ gap: 14, alignItems: "center" }}>
+              {company.logoDataUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={company.logoDataUrl} alt="" style={{ width: 56, height: 56, objectFit: "contain", borderRadius: 8 }} />
+              )}
+              <div>
               <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>{company.name}</h2>
               <div style={{ fontSize: 13, color: "#555" }}>{company.address}</div>
-              <div style={{ fontSize: 13, color: "#555" }}>Kontak: {company.phone} | {company.email}</div>
+              <div style={{ fontSize: 13, color: "#555" }}>Kontak: {company.phone}{company.email ? ` | ${company.email}` : ""}</div>
+              </div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div className="badge blue" style={{ fontSize: 13, padding: "6px 12px" }}>

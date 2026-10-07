@@ -211,13 +211,13 @@ export function PlanCanvas({
                     onSelect(r.id, "room");
                   }}
                 />
+                {/* Font kecil (0,26 m) dirender rusak di Chrome; render 13px lalu diskalakan */}
                 <text
-                  x={cx}
-                  y={cy}
+                  transform={`translate(${cx} ${cy}) scale(0.02)`}
                   textAnchor="middle"
                   dominantBaseline="middle"
                   className="room-label"
-                  fontSize="0.26"
+                  fontSize={13}
                 >
                   {r.name}
                 </text>
@@ -270,8 +270,22 @@ export function PlanCanvas({
           {/* Openings (Doors & Windows) */}
           {plan.openings.map((o) => {
             const isSel = selectedId === o.id;
-            const r = o.width / 2;
             const isDoor = o.type === "door";
+            const wall = plan.walls.find((w) => w.id === o.wallId);
+            let dx = 1, dy = 0;
+            if (wall) {
+              const L = Math.hypot(wall.b.x - wall.a.x, wall.b.y - wall.a.y) || 1;
+              dx = (wall.b.x - wall.a.x) / L;
+              dy = (wall.b.y - wall.a.y) / L;
+            }
+            const h = o.width / 2;
+            const p1 = { x: o.at.x - dx * h, y: o.at.y - dy * h };
+            const p2 = { x: o.at.x + dx * h, y: o.at.y + dy * h };
+            // daun pintu: tegak lurus dinding dari p1, busur seperempat lingkaran ke p2
+            const nx = -dy, ny = dx;
+            const q = { x: p1.x + nx * o.width, y: p1.y + ny * o.width };
+            const sweep = nx * dy - ny * dx > 0 ? 1 : 0;
+            const color = isSel ? "var(--orange)" : isDoor ? "var(--accent)" : "var(--accent-2)";
             return (
               <g
                 key={o.id}
@@ -281,24 +295,25 @@ export function PlanCanvas({
                   onSelect(o.id, "opening");
                 }}
               >
-                <circle
-                  cx={o.at.x}
-                  cy={o.at.y}
-                  r={r}
-                  fill={
-                    isDoor
-                      ? "rgba(10, 132, 255, 0.25)"
-                      : "rgba(94, 92, 230, 0.25)"
-                  }
-                  stroke={isSel ? "var(--orange)" : isDoor ? "var(--accent)" : "var(--accent-2)"}
-                  strokeWidth="0.04"
-                />
-                <circle
-                  cx={o.at.x}
-                  cy={o.at.y}
-                  r={0.06}
-                  fill={isDoor ? "var(--accent)" : "var(--accent-2)"}
-                />
+                <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="transparent" strokeWidth={0.45} />
+                <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#ffffff" strokeWidth={0.17} />
+                {isDoor ? (
+                  <>
+                    <path
+                      d={`M ${p1.x} ${p1.y} L ${q.x} ${q.y} A ${o.width} ${o.width} 0 0 ${sweep} ${p2.x} ${p2.y}`}
+                      fill={isSel ? "rgba(255,159,10,0.12)" : "rgba(10,132,255,0.08)"}
+                      stroke={color}
+                      strokeWidth={0.035}
+                      strokeDasharray="0.08 0.05"
+                    />
+                    <line x1={p1.x} y1={p1.y} x2={q.x} y2={q.y} stroke={color} strokeWidth={0.06} strokeLinecap="round" />
+                  </>
+                ) : (
+                  <>
+                    <line x1={p1.x - nx * 0.04} y1={p1.y - ny * 0.04} x2={p2.x - nx * 0.04} y2={p2.y - ny * 0.04} stroke={color} strokeWidth={0.035} />
+                    <line x1={p1.x + nx * 0.04} y1={p1.y + ny * 0.04} x2={p2.x + nx * 0.04} y2={p2.y + ny * 0.04} stroke={color} strokeWidth={0.035} />
+                  </>
+                )}
               </g>
             );
           })}
@@ -326,9 +341,8 @@ export function PlanCanvas({
                             strokeWidth="0.02"
                           />
                           <text
-                            x={mid}
-                            y={-0.42}
-                            fontSize="0.2"
+                            transform={`translate(${mid} -0.42) scale(0.02)`}
+                            fontSize={10}
                             textAnchor="middle"
                             fill="var(--text-2)"
                           >
