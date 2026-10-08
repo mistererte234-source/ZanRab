@@ -194,6 +194,8 @@ export interface RabLine extends QuantityItem {
   unitPrice: number;
   total: number;
   priceSource: PriceMode | "manual";
+  /** Urutan asli dari take-off (untuk menampilkan item aktif & yang dikeluarkan berurutan) */
+  order?: number;
 }
 
 export interface RabSection {
@@ -205,6 +207,8 @@ export interface RabSection {
 
 export interface RabResult {
   sections: RabSection[];
+  /** Item yang tidak dicentang: tetap ditampilkan (dicoret) agar bisa dicentang lagi, tidak dihitung */
+  excludedLines: RabLine[];
   directCost: number;
   overheadProfit: number;
   beforeTax: number;

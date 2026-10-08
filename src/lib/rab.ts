@@ -20,9 +20,8 @@ export function computeRab(project: Project, db: PriceDb): { rab: RabResult; qua
   const { items, ctx } = takeoff(project.plan, project.params);
   const all = [...items, ...project.customLines.map((c) => ({ ...c, section: c.section || "XII" }))];
 
-  const lines: RabLine[] = all
-    .filter((it) => !project.excluded.includes(it.code))
-    .map((it) => {
+  const allLines: RabLine[] = all
+    .map((it, order) => {
       const volume = project.volumeOverrides[it.code] ?? it.volume;
       const { price, source } = unitPriceFor(db, project, it);
       return {
@@ -32,8 +31,11 @@ export function computeRab(project: Project, db: PriceDb): { rab: RabResult; qua
         unitPrice: price,
         total: Math.round(volume * price),
         priceSource: source,
+        order,
       };
     });
+  const lines = allLines.filter((l) => !project.excluded.includes(l.code));
+  const excludedLines = allLines.filter((l) => project.excluded.includes(l.code));
 
   const sections: RabSection[] = Object.entries(SECTIONS)
     .map(([code, title]) => {
@@ -57,6 +59,7 @@ export function computeRab(project: Project, db: PriceDb): { rab: RabResult; qua
   return {
     rab: {
       sections,
+      excludedLines,
       directCost,
       overheadProfit,
       beforeTax,

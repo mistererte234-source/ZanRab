@@ -87,3 +87,16 @@ describe("MEP lanjutan", () => {
     expect(merged.catalog.find((c) => c.code === "LST.LAMPU")?.borongan).toBe(999);
   });
 });
+
+describe("item RAB yang tidak dicentang", () => {
+  it("tetap tersedia untuk dicentang lagi & tidak dihitung", () => {
+    const params = { ...baseParams, demolitionLumpSum: 5_000_000, kitchenCounterLength: 2.5 };
+    const full = computeRab(newProject({ plan: samplePlan(), params }), db)!.rab;
+    const p = newProject({ plan: samplePlan(), params, excluded: ["STR.KOLOM"] });
+    const r = computeRab(p, db)!.rab;
+    const kolom = full.sections.flatMap((s) => s.lines).find((l) => l.code === "STR.KOLOM")!;
+    expect(r.excludedLines.map((l) => l.code)).toEqual(["STR.KOLOM"]);
+    expect(r.sections.flatMap((s) => s.lines).some((l) => l.code === "STR.KOLOM")).toBe(false);
+    expect(r.directCost).toBe(full.directCost - kolom.total);
+  });
+});

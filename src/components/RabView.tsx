@@ -5,6 +5,7 @@ import type { Company, Project, RabResult } from "@/lib/types";
 import { num, rupiah, terbilangRupiah } from "@/lib/rab";
 import { exportRabXlsx } from "@/lib/export/xlsx";
 import { calculateBom } from "@/lib/bom";
+import { SECTIONS } from "@/lib/pricing";
 import {
   Table,
   Download,
@@ -37,6 +38,21 @@ export function RabView({ project, rab, company, onUpdateProject, forcedTab, sch
   const [isExporting, setIsExporting] = useState(false);
 
   const bom = useMemo(() => calculateBom(rab), [rab]);
+
+  // Item aktif + item yang dikeluarkan (dicoret) dalam urutan aslinya, agar bisa dicentang lagi
+  const tableSections = useMemo(() => {
+    const excluded = rab.excludedLines ?? [];
+    return Object.entries(SECTIONS)
+      .map(([code, title]) => {
+        const sec = rab.sections.find((x) => x.code === code);
+        const lines = [...(sec?.lines ?? []), ...excluded.filter((l) => l.section === code)].sort(
+          (a, b) => (a.order ?? 0) - (b.order ?? 0),
+        );
+        return { code, title: sec?.title ?? title, lines, subtotal: sec?.subtotal ?? 0 };
+      })
+      .filter((x) => x.lines.length > 0);
+  }, [rab]);
+  const excludedCount = rab.excludedLines?.length ?? 0;
 
   // Section Color Palette for Visual Breakdown
   const SECTION_COLORS: Record<string, string> = {
@@ -199,6 +215,11 @@ export function RabView({ project, rab, company, onUpdateProject, forcedTab, sch
       {/* Main Tab 1: Detailed Table */}
       {activeTab === "tabel" && (
         <div className="card glass" style={{ padding: 0, overflow: "hidden" }}>
+          {excludedCount > 0 && (
+            <div className="excluded-note">
+              {excludedCount} item tidak dihitung (dicoret). Centang lagi untuk memasukkannya kembali.
+            </div>
+          )}
           <div className="scroll-x">
             <table className="table rab-table">
               <thead>
@@ -212,7 +233,7 @@ export function RabView({ project, rab, company, onUpdateProject, forcedTab, sch
                 </tr>
               </thead>
               <tbody>
-                {rab.sections.map((sec) => (
+                {tableSections.map((sec) => (
                   <React.Fragment key={sec.code}>
                     <tr className="section">
                       <td colSpan={6}>
@@ -226,11 +247,13 @@ export function RabView({ project, rab, company, onUpdateProject, forcedTab, sch
                         <tr
                           key={l.code}
                           className={`line ${isExcluded ? "excluded" : ""}`}
+                          title={isExcluded ? "Tidak dihitung — centang untuk memasukkan kembali" : undefined}
                         >
                           <td className="c-act" style={{ textAlign: "center" }}>
                             <input
                               type="checkbox"
                               checked={!isExcluded}
+                              aria-label={`${isExcluded ? "Masukkan" : "Keluarkan"} ${l.name}`}
                               onChange={() => toggleExclude(l.code)}
                             />
                           </td>
