@@ -410,6 +410,71 @@ textarea.input { height: auto; min-height: 80px; padding: 10px 12px; resize: ver
 
 .btn-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 
+/* ---------- Jadwal & tenaga kerja ---------- */
+.sched-stats { display: grid; grid-template-columns: 1.3fr repeat(3, minmax(0, 1fr)); gap: 12px; }
+.sched-stats .stat .value { font-size: 22px; }
+.sched-hero .value { font-size: 30px !important; color: var(--accent); }
+@media (max-width: 960px) { .sched-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sched-hero { grid-column: 1 / -1; } }
+.callout { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 18px; font-size: 13.5px; line-height: 1.45; flex-wrap: wrap; }
+.callout > svg { flex-shrink: 0; }
+.callout.tone-accent { background: color-mix(in srgb, var(--accent) 10%, var(--glass)); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+.callout.tone-accent > svg { color: var(--accent); }
+.callout.tone-warn { background: color-mix(in srgb, var(--orange) 10%, var(--glass)); border: 1px solid color-mix(in srgb, var(--orange) 35%, transparent); }
+.callout.tone-warn > svg { color: #c27400; }
+@media (prefers-color-scheme: dark) { .callout.tone-warn > svg { color: #ffb340; } }
+.sched-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 960px) { .sched-grid { grid-template-columns: 1fr; } }
+.crew-list { display: flex; flex-direction: column; }
+.crew-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--hairline); }
+.crew-row:last-child { border-bottom: 0; }
+.crew-row[data-missing="true"] .crew-name { color: #c27400; }
+.crew-name { font-weight: 620; font-size: 14px; }
+.num-stepper { display: inline-flex; align-items: center; border-radius: 12px; background: color-mix(in srgb, var(--text) 6%, transparent); padding: 3px; flex-shrink: 0; }
+.num-stepper button { width: 38px; height: 38px; border: 0; border-radius: 10px; background: var(--glass-strong); color: var(--text); display: grid; place-items: center; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+.num-stepper button:disabled { opacity: 0.35; cursor: not-allowed; }
+.num-stepper button:active:not(:disabled) { transform: scale(0.92); }
+.num-stepper span { min-width: 34px; text-align: center; font-weight: 750; font-size: 15px; }
+.target-box { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 16px; background: color-mix(in srgb, var(--accent) 6%, transparent); border: 1px dashed color-mix(in srgb, var(--accent) 35%, transparent); }
+
+.gantt { display: flex; flex-direction: column; gap: 2px; }
+.gantt-row, .gantt-axis { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 12px; align-items: center; }
+.gantt-row { min-height: 34px; }
+.gantt-label { font-size: 13px; font-weight: 560; text-transform: capitalize; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gantt-track { position: relative; height: 26px; }
+.gantt-axis .gantt-track { height: 18px; }
+.gantt-tick { position: absolute; top: 0; transform: translateX(-50%); font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.gantt-tick:first-child { transform: none; }
+.gantt-tick:last-child:not(:first-child) { transform: translateX(-100%); }
+.gantt-grid { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--hairline); }
+.gantt-bar { position: absolute; top: 6px; height: 14px; border: 0; padding: 0; border-radius: 4px; background: var(--accent); cursor: pointer; transition: filter 0.15s, transform 0.15s; }
+.gantt-bar:hover, .gantt-bar:focus-visible { filter: brightness(1.12); transform: scaleY(1.15); outline: none; }
+.gantt-bar[data-assumed="true"], .legend-swatch.hatched { background: repeating-linear-gradient(135deg, var(--accent) 0 5px, color-mix(in srgb, var(--accent) 45%, transparent) 5px 9px); }
+.legend-swatch { width: 16px; height: 10px; border-radius: 3px; background: var(--accent); display: inline-block; }
+.chart-tip { position: absolute; top: 28px; z-index: 5; max-width: min(340px, 80vw); padding: 8px 10px; border-radius: 10px; font-size: 12px; line-height: 1.4; background: var(--glass-strong); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); border: 1px solid var(--glass-border); box-shadow: var(--shadow-lg); color: var(--text); pointer-events: none; white-space: normal; }
+@media (max-width: 640px) {
+  .gantt-row, .gantt-axis { grid-template-columns: 1fr; gap: 2px; }
+  .gantt-axis > span:first-child { display: none; }
+  .gantt-row { min-height: 0; padding: 4px 0; }
+}
+
+.scurve-wrap { position: relative; }
+.scurve { width: 100%; height: auto; display: block; }
+.sc-grid { stroke: var(--hairline); stroke-width: 1; }
+.sc-axis { font-size: 11px; fill: var(--text-3); font-variant-numeric: tabular-nums; }
+.sc-area { fill: var(--accent); opacity: 0.1; }
+.sc-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.sc-mile { stroke: var(--text-3); stroke-width: 1; }
+.sc-dot { fill: var(--accent); stroke: var(--bg); stroke-width: 2; }
+.sc-label { font-size: 11.5px; font-weight: 650; fill: var(--text-2); }
+.sc-cross { stroke: var(--text-3); stroke-width: 1; }
+.scurve-wrap .chart-tip { top: 0; }
+.sc-table summary { cursor: pointer; font-size: 13px; color: var(--text-2); font-weight: 600; }
+.sc-table-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px 12px; margin-top: 10px; font-size: 12.5px; color: var(--text-2); }
+
+/* ---------- Parameter MEP ---------- */
+.mep-note { font-size: 13px; line-height: 1.5; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.mep-group h4 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); }
+
 /* Toast di atas segalanya */
 .toast { z-index: 95; max-width: calc(100% - 32px); text-align: center; }
 

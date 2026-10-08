@@ -1,5 +1,27 @@
-import type { Plan, ProjectParams } from "./types";
+import type { MepParams, Plan, ProjectParams } from "./types";
 import { rect } from "./geometry";
+
+/** Default MEP: semua item tambahan mati agar RAB lama tidak berubah; nyalakan di Parameter → MEP */
+export const DEFAULT_MEP: MepParams = {
+  ac: "tidak",
+  acIncludeUnit: true,
+  exhaustFan: false,
+  waterHeater: false,
+  waterSource: "tidak_termasuk",
+  wellDepth: 30,
+  tankLiters: 0,
+  tankTower: false,
+  plnVa: 0,
+  grounding: false,
+  lightningRod: false,
+  tvPoints: 0,
+  lanPoints: 0,
+  cctvCameras: 0,
+  doorbell: false,
+  drainage: false,
+};
+
+export const mepOf = (p: ProjectParams): MepParams => ({ ...DEFAULT_MEP, ...(p.mep ?? {}) });
 
 /** Parameter default — mengikuti spesifikasi RAB referensi (RAB KAMAL) */
 export const DEFAULT_PARAMS: ProjectParams = {

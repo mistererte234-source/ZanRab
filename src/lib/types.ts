@@ -142,6 +142,38 @@ export interface ProjectParams {
   ppnPct: number; // 0.11
   includePpn: boolean;
   roundTo: number; // pembulatan total, mis. 1000
+  /** MEP lanjutan; undefined = default */
+  mep?: MepParams;
+}
+
+/** Parameter MEP (Mekanikal, Elektrikal, Plumbing). Opsional: proyek lama belum punya → pakai default. */
+export interface MepParams {
+  /** AC split: di ruang mana */
+  ac: "tidak" | "kamar_utama" | "semua_kamar" | "kamar_dan_keluarga";
+  /** Unit AC ikut ditawarkan (bukan hanya instalasi) */
+  acIncludeUnit: boolean;
+  exhaustFan: boolean;
+  /** Water heater listrik per kamar mandi */
+  waterHeater: boolean;
+  /** "tidak_termasuk" = sambungan air sudah ada / tidak ditawarkan */
+  waterSource: "tidak_termasuk" | "pdam" | "sumur_bor" | "pdam_dan_sumur";
+  /** Kedalaman sumur bor (m) */
+  wellDepth: number;
+  /** Kapasitas toren (liter), 0 = tanpa toren */
+  tankLiters: 0 | 520 | 1050 | 1550 | 2000;
+  /** Menara / dudukan toren baja */
+  tankTower: boolean;
+  /** Daya PLN yang dipasang / ditambah (VA), 0 = tidak termasuk */
+  plnVa: number;
+  grounding: boolean;
+  lightningRod: boolean;
+  /** Titik arus lemah */
+  tvPoints: number;
+  lanPoints: number;
+  cctvCameras: number;
+  doorbell: boolean;
+  /** Saluran air hujan keliling bangunan + bak kontrol */
+  drainage: boolean;
 }
 
 export type PriceMode = "borongan" | "ahsp";
@@ -216,6 +248,39 @@ export interface ConsensusReport {
   diffs: { metric: string; a: number; b: number; deltaPct: number }[];
 }
 
+// ---------------------------------------------------------------------------
+// Jadwal & tenaga kerja
+// ---------------------------------------------------------------------------
+
+/** Jenis tenaga yang mengerjakan (membatasi kecepatan) */
+export type TradeId = "kuli" | "kenek" | "batu" | "kayu" | "besi" | "cat" | "instalatir";
+
+export type CrewCounts = Record<TradeId, number>;
+
+/** Pengawas: hadir sepanjang proyek, tidak membatasi kecepatan */
+export interface SupervisorCounts {
+  mandor: number;
+  kepalaTukang: number;
+}
+
+export interface ScheduleSettings {
+  /** Jumlah orang per jenis tenaga di lapangan */
+  crew: CrewCounts;
+  supervisors: SupervisorCounts;
+  /** Tanggal mulai pekerjaan (YYYY-MM-DD); null = belum ditentukan */
+  startDate: string | null;
+  /** Faktor produktivitas tim terhadap AHSP: 1 = sesuai AHSP, 1.3 = 30% lebih cepat */
+  productivity: number;
+  /** Hari kerja per minggu (5–7) */
+  workDaysPerWeek: number;
+  /** Target selesai (hari kalender) untuk menghitung rekomendasi tim; null = tidak ada target */
+  targetCalendarDays: number | null;
+  /** Override manual total durasi (hari kalender); null = pakai hitungan */
+  overrideCalendarDays: number | null;
+  /** Override produktivitas asumsi: kode item → OH per satuan */
+  ohOverrides?: Record<string, number>;
+}
+
 export interface Project {
   id: string;
   title: string;
@@ -241,4 +306,6 @@ export interface Project {
   offerValidityDays: number;
   paymentTerms: string;
   status: "draft" | "dikirim" | "deal";
+  /** Pengaturan jadwal & tim (opsional: proyek lama belum punya) */
+  schedule?: ScheduleSettings;
 }

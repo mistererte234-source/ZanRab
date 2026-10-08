@@ -14,6 +14,9 @@ import { AnalyzingCard } from "@/components/AnalyzingCard";
 import { CheckPanel } from "@/components/CheckPanel";
 import { TotalDock } from "@/components/TotalDock";
 import { OfferPanel, buildWhatsAppUrl } from "@/components/OfferPanel";
+import { ScheduleView } from "@/components/ScheduleView";
+import { computeSchedule, scheduleSettingsOf, workDayToDate } from "@/lib/schedule";
+import { buildZandorPlan, downloadJson, zandorFileName } from "@/lib/zandor";
 import { computeRab, rupiah } from "@/lib/rab";
 import { fileToDownscaledDataUrl } from "@/lib/image";
 import { DEFAULT_PARAMS } from "@/lib/defaults";
@@ -91,6 +94,19 @@ export default function Home() {
   }, [ready, projectList]);
 
   const rabData = useMemo(() => (currentProject ? computeRab(currentProject, priceDb) : null), [currentProject, priceDb]);
+  const schedule = useMemo(
+    () => (currentProject && rabData ? computeSchedule(currentProject, rabData.rab, priceDb) : null),
+    [currentProject, rabData, priceDb],
+  );
+  const duration = useMemo(() => {
+    if (!schedule) return null;
+    const end = schedule.startDate ? workDayToDate(schedule.startDate, Math.max(0, schedule.workDays - 1), schedule.workDaysPerWeek) : null;
+    return {
+      calendarDays: schedule.calendarDays,
+      weeks: schedule.weeks,
+      endDateText: end ? end.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : null,
+    };
+  }, [schedule]);
 
   const totals = useMemo(() => {
     const out: Record<string, string> = {};
@@ -242,7 +258,7 @@ export default function Home() {
 
   const sendWhatsApp = () => {
     if (!currentProject || !rabData) return;
-    window.open(buildWhatsAppUrl(currentProject, rabData.rab, company), "_blank", "noopener,noreferrer");
+    window.open(buildWhatsAppUrl(currentProject, rabData.rab, company, duration), "_blank", "noopener,noreferrer");
     if (currentProject.status === "draft") updateProject(currentProject.id, { status: "dikirim" });
   };
 
@@ -261,6 +277,13 @@ export default function Home() {
         return null;
     }
   })();
+
+  const exportZandor = () => {
+    if (!currentProject || !rabData || !schedule) return;
+    const plan = buildZandorPlan(currentProject, rabData.rab, company, schedule, scheduleSettingsOf(currentProject).productivity);
+    downloadJson(zandorFileName(currentProject), plan);
+    setToast("Rencana kerja diekspor untuk ZanDor");
+  };
 
   const focusWall = (wallId: string) => {
     setSelectedEntityId(wallId);
@@ -452,6 +475,15 @@ export default function Home() {
                 rab={rabData.rab}
                 company={company}
                 onUpdateProject={(patch) => updateProject(currentProject.id, patch)}
+                scheduleSlot={
+                  <ScheduleView
+                    project={currentProject}
+                    rab={rabData.rab}
+                    company={company}
+                    priceDb={priceDb}
+                    onUpdateProject={(patch) => updateProject(currentProject.id, patch)}
+                  />
+                }
               />
             )}
 
@@ -464,6 +496,8 @@ export default function Home() {
                   company={company}
                   onUpdateProject={(patch) => updateProject(currentProject.id, patch)}
                   onUpdateCompany={setCompany}
+                  duration={duration}
+                  onExportZandor={exportZandor}
                 />
                 <div className="offer-preview">
                   <RabView
@@ -471,6 +505,7 @@ export default function Home() {
                     rab={rabData.rab}
                     company={company}
                     forcedTab="surat"
+                    duration={duration}
                     onUpdateProject={(patch) => updateProject(currentProject.id, patch)}
                   />
                 </div>
@@ -496,6 +531,7 @@ export default function Home() {
             actionLabel={dock.action}
             actionIcon={dock.icon}
             onAction={dock.run}
+            extra={duration ? `± ${duration.weeks} minggu` : null}
           />
         )}
 

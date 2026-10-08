@@ -11,6 +11,7 @@ export function TotalDock({
   actionLabel,
   actionIcon,
   onAction,
+  extra,
 }: {
   total: number;
   perM2: number;
@@ -18,6 +19,7 @@ export function TotalDock({
   actionLabel: string;
   actionIcon?: React.ReactNode;
   onAction: () => void;
+  extra?: string | null;
 }) {
   return (
     <div className="total-dock no-print" role="region" aria-label="Ringkasan total">
@@ -26,7 +28,9 @@ export function TotalDock({
         <span className="dock-total">
           <AnimatedNumber value={total} format={rupiah} />
         </span>
-        <span className="dock-sub mono">{rupiah(perM2)} / m²</span>
+        <span className="dock-sub mono">
+          {rupiah(perM2)} / m²{extra ? ` · ${extra}` : ""}
+        </span>
       </div>
       <button type="button" className="btn btn-primary btn-lg dock-action" onClick={onAction}>
         {actionIcon}

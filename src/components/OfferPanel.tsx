@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { MessageCircle, Printer, FileSpreadsheet, Loader2, ImagePlus, X, CheckCircle2 } from "lucide-react";
+import { MessageCircle, Printer, FileSpreadsheet, Loader2, ImagePlus, X, CheckCircle2, Download } from "lucide-react";
 import type { Company, Project, RabResult } from "@/lib/types";
 import { rupiah, terbilangRupiah } from "@/lib/rab";
 import { exportRabXlsx } from "@/lib/export/xlsx";
@@ -17,7 +17,7 @@ export function toWaNumber(phone: string): string {
   return d;
 }
 
-export function buildWhatsAppUrl(project: Project, rab: RabResult, company: Company): string {
+export function buildWhatsAppUrl(project: Project, rab: RabResult, company: Company, duration?: { calendarDays: number; weeks: number } | null): string {
   const lines = [
     `*Penawaran Harga — ${project.title}*`,
     project.client.name ? `Kepada Yth. ${project.client.name}` : "",
@@ -26,6 +26,7 @@ export function buildWhatsAppUrl(project: Project, rab: RabResult, company: Comp
     `Nilai penawaran: *${rupiah(rab.grandTotalRounded)}*`,
     `(${terbilangRupiah(rab.grandTotalRounded)})`,
     `Termasuk O&P ${Math.round(project.params.overheadProfitPct * 100)}%${project.params.includePpn ? " dan PPN" : ", belum termasuk PPN"}.`,
+    duration ? `Waktu pelaksanaan: ± ${duration.calendarDays} hari kalender (± ${duration.weeks} minggu).` : "",
     "",
     `No. penawaran: ${project.offerNumber}`,
     `Berlaku ${project.offerValidityDays} hari.`,
@@ -44,18 +45,22 @@ export function OfferPanel({
   company,
   onUpdateProject,
   onUpdateCompany,
+  duration,
+  onExportZandor,
 }: {
   project: Project;
   rab: RabResult;
   company: Company;
   onUpdateProject: (patch: Partial<Project>) => void;
   onUpdateCompany: (c: Company) => void;
+  duration?: { calendarDays: number; weeks: number } | null;
+  onExportZandor?: () => void;
 }) {
   const [exporting, setExporting] = useState(false);
   const logoRef = useRef<HTMLInputElement>(null);
 
   const sendWa = () => {
-    window.open(buildWhatsAppUrl(project, rab, company), "_blank", "noopener,noreferrer");
+    window.open(buildWhatsAppUrl(project, rab, company, duration), "_blank", "noopener,noreferrer");
     if (project.status === "draft") onUpdateProject({ status: "dikirim" });
   };
 
@@ -102,6 +107,12 @@ export function OfferPanel({
             Excel
           </button>
         </div>
+        {onExportZandor && (
+          <button type="button" className="btn" onClick={onExportZandor}>
+            <Download size={16} />
+            Ekspor rencana kerja ke ZanDor
+          </button>
+        )}
         <div className="faint" style={{ fontSize: 12, lineHeight: 1.45 }}>
           WhatsApp membawa ringkasan nilai penawaran. Lampirkan PDF dari tombol “Simpan PDF” (pilih “Save as PDF” di jendela cetak).
         </div>

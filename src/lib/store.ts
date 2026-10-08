@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { get as idbGet, set as idbSet } from "idb-keyval";
 import { DEFAULT_PARAMS, samplePlan } from "./defaults";
-import { defaultPriceDb, type PriceDb } from "./pricing";
+import { defaultPriceDb, mergePriceDb, type PriceDb } from "./pricing";
 import type { Company, Project } from "./types";
 import type { ProviderId } from "./ai/providers";
 import { uid } from "./geometry";
@@ -104,7 +104,7 @@ export const useStore = create<State>((set, get) => ({
     set({
       ready: true,
       projects: saved?.projects ?? {},
-      priceDb: saved?.priceDb ?? defaultPriceDb(),
+      priceDb: mergePriceDb(saved?.priceDb),
       company: saved?.company ?? DEFAULT_COMPANY,
       settings: { ...DEFAULT_SETTINGS, ...(saved?.settings ?? {}) },
     });

@@ -10,6 +10,7 @@ import {
   wallLength,
 } from "./geometry";
 import type { Opening, Plan, Point, ProjectParams, QuantityItem, Room, Wall } from "./types";
+import { mepOf } from "./defaults";
 
 const f = (v: number, d = 2) => round(v, d).toLocaleString("id-ID", { maximumFractionDigits: d });
 
@@ -369,6 +370,67 @@ export function takeoff(plan: Plan, P: ProjectParams): { items: QuantityItem[]; 
     add({ code: "AIR.CLOSET", section: "X", name: "Closet duduk", unit: "bh", volume: wetRooms.length, formula: `${wetRooms.length} KM`, source: "denah" });
     add({ code: "AIR.SINK", section: "X", name: "Kitchen sink + kran", unit: "unit", volume: kitchens.length, formula: `${kitchens.length} dapur`, source: "denah" });
   }
+  // ---------- IX & X. MEP lanjutan (parameter MEP) ----------
+  {
+    const M = mepOf(P);
+    const dExtR = (r: Room) => distanceToExterior(polygonCentroid(r.polygon), plan.walls);
+    const kamar = plan.rooms.filter((r) => r.type === "kamar");
+    const keluarga = plan.rooms.filter((r) => r.type === "ruang_keluarga");
+    const dapur = plan.rooms.filter((r) => r.type === "dapur");
+    let acRooms: Room[] = [];
+    if (M.ac === "kamar_utama") {
+      const utama = kamar.find((r) => /utama/i.test(r.name)) ?? [...kamar].sort((a, b) => polygonArea(b.polygon) - polygonArea(a.polygon))[0];
+      acRooms = utama ? [utama] : [];
+    } else if (M.ac === "semua_kamar") acRooms = kamar;
+    else if (M.ac === "kamar_dan_keluarga") acRooms = [...kamar, ...keluarga];
+    if (acRooms.length) {
+      const names = acRooms.map((r) => r.name).join(", ");
+      if (M.acIncludeUnit)
+        add({ code: "MEK.ACUNIT", section: "IX", name: "Unit AC split 1 PK standar", unit: "unit", volume: acRooms.length, formula: names, source: "parameter" });
+      add({ code: "MEK.ACINSTAL", section: "IX", name: "Instalasi AC (pipa ±3 m, kabel, bracket, vakum)", unit: "unit", volume: acRooms.length, formula: names, source: "parameter" });
+      const extra = acRooms.reduce((a, r) => a + Math.max(0, dExtR(r) + 1 - 3), 0);
+      if (extra > 0.5)
+        add({ code: "MEK.ACPIPA", section: "IX", name: "Tambahan pipa & kabel AC > 3 m", unit: "m1", volume: Math.ceil(extra), formula: "Jarak ruang → dinding luar + 1 m, dikurangi 3 m standar", source: "denah" });
+    }
+    if (M.exhaustFan && wetRooms.length + dapur.length)
+      add({ code: "MEK.EXHAUST", section: "IX", name: "Exhaust fan + instalasi", unit: "bh", volume: wetRooms.length + dapur.length, formula: `${wetRooms.length} KM + ${dapur.length} dapur`, source: "denah" });
+    if (M.waterHeater && wetRooms.length)
+      add({ code: "MEK.WATERHEATER", section: "IX", name: "Water heater listrik 30 L + pipa air panas", unit: "unit", volume: wetRooms.length, formula: `${wetRooms.length} KM`, source: "denah" });
+    if (M.plnVa > 0)
+      add({ code: "LST.PLN", section: "IX", name: "Penyambungan / tambah daya PLN", unit: "VA", volume: M.plnVa, formula: `Daya ${M.plnVa.toLocaleString("id-ID")} VA`, source: "parameter" });
+    if (M.grounding) add({ code: "LST.GROUNDING", section: "IX", name: "Grounding / pembumian", unit: "titik", volume: 1, formula: "1 titik di panel", source: "parameter" });
+    if (M.lightningRod) add({ code: "LST.PETIR", section: "IX", name: "Penangkal petir konvensional", unit: "ls", volume: 1, formula: "1 set", source: "parameter" });
+    if (M.tvPoints > 0) add({ code: "LST.TV", section: "IX", name: "Titik TV + kabel antena", unit: "titik", volume: M.tvPoints, formula: "Parameter", source: "parameter" });
+    if (M.lanPoints > 0) add({ code: "LST.LAN", section: "IX", name: "Titik data / LAN (UTP Cat6)", unit: "titik", volume: M.lanPoints, formula: "Parameter", source: "parameter" });
+    if (M.cctvCameras > 0) {
+      add({ code: "LST.CCTV", section: "IX", name: "Kamera CCTV + kabel + pemasangan", unit: "titik", volume: M.cctvCameras, formula: "Parameter", source: "parameter" });
+      add({ code: "LST.DVR", section: "IX", name: "DVR/NVR + harddisk CCTV", unit: "unit", volume: 1, formula: "1 unit", source: "parameter" });
+    }
+    if (M.doorbell) add({ code: "LST.BEL", section: "IX", name: "Bel rumah + instalasi", unit: "unit", volume: 1, formula: "1 unit", source: "parameter" });
+
+    const usePdam = M.waterSource === "pdam" || M.waterSource === "pdam_dan_sumur";
+    const useWell = M.waterSource === "sumur_bor" || M.waterSource === "pdam_dan_sumur";
+    if (usePdam) add({ code: "AIR.PDAM", section: "X", name: "Sambungan PDAM (meter + pipa ke rumah)", unit: "ls", volume: 1, formula: "Sumber air PDAM", source: "parameter" });
+    if (useWell) {
+      add({ code: "AIR.SUMURBOR", section: "X", name: 'Sumur bor Ø 3–4"', unit: "m1", volume: M.wellDepth, formula: `Kedalaman ${M.wellDepth} m`, source: "parameter" });
+      if (M.wellDepth > 9)
+        add({ code: "AIR.POMPAJET", section: "X", name: "Pompa jet pump sumur dalam + instalasi", unit: "unit", volume: 1, formula: `Sumur ${M.wellDepth} m (> 9 m → jet pump)`, source: "parameter" });
+      else add({ code: "AIR.POMPA", section: "X", name: "Pompa air sumur dangkal + instalasi", unit: "unit", volume: 1, formula: `Sumur ${M.wellDepth} m`, source: "parameter" });
+    }
+    if (M.tankLiters > 0) {
+      const sizeName = M.tankLiters.toLocaleString("id-ID");
+      add({ code: `AIR.TOREN${M.tankLiters}`, section: "X", name: `Toren air ${sizeName} L + instalasi`, unit: "unit", volume: 1, formula: "Parameter", source: "parameter" });
+      if (!useWell)
+        add({ code: "AIR.POMPADORONG", section: "X", name: "Pompa pendorong ke toren + instalasi", unit: "unit", volume: 1, formula: "Air PDAM dinaikkan ke toren", source: "asumsi" });
+      if (M.tankTower) add({ code: "AIR.MENARA", section: "X", name: "Menara toren baja ± 3 m", unit: "unit", volume: 1, formula: "Parameter", source: "parameter" });
+    }
+    if (M.drainage) {
+      const keliling = 2 * (plan.outline.width + plan.outline.depth);
+      add({ code: "AIR.DRAINASE", section: "X", name: "Saluran air hujan 30 cm (pas. bata / U-ditch)", unit: "m1", volume: Math.ceil(keliling + 4), formula: `Keliling bangunan ${f(keliling)} m + 4 m ke saluran kota`, source: "denah" });
+      add({ code: "AIR.BAKKONTROL", section: "X", name: "Bak kontrol 40×40 cm", unit: "bh", volume: 4 + wetRooms.length, formula: `4 sudut + ${wetRooms.length} jalur KM`, source: "denah" });
+    }
+  }
+
   if (P.septicTank)
     add({ code: "AIR.SEPTIC", section: "X", name: "Septic tank biofilter + resapan", unit: "unit", volume: 1, formula: "1 unit", source: "parameter" });
 

@@ -14,6 +14,7 @@ import {
   Truck,
   CheckCircle2,
   AlertCircle,
+  CalendarClock,
 } from "lucide-react";
 
 interface RabViewProps {
@@ -23,11 +24,15 @@ interface RabViewProps {
   onUpdateProject: (patch: Partial<Project>) => void;
   /** Paksa satu tampilan (mis. "surat" di langkah Penawaran) dan sembunyikan header/tab */
   forcedTab?: "tabel" | "surat" | "bom" | "analisa";
+  /** Isi tab "Jadwal & Tim" */
+  scheduleSlot?: React.ReactNode;
+  /** Ringkasan waktu pelaksanaan untuk surat penawaran */
+  duration?: { calendarDays: number; weeks: number; endDateText: string | null } | null;
 }
 
-export function RabView({ project, rab, company, onUpdateProject, forcedTab }: RabViewProps) {
-  const [tabState, setActiveTab] = useState<"tabel" | "bom" | "analisa">("tabel");
-  const activeTab: "tabel" | "surat" | "bom" | "analisa" = forcedTab ?? tabState;
+export function RabView({ project, rab, company, onUpdateProject, forcedTab, scheduleSlot, duration }: RabViewProps) {
+  const [tabState, setActiveTab] = useState<"tabel" | "bom" | "analisa" | "jadwal">("tabel");
+  const activeTab: "tabel" | "surat" | "bom" | "analisa" | "jadwal" = forcedTab ?? tabState;
   const hideChrome = !!forcedTab;
   const [isExporting, setIsExporting] = useState(false);
 
@@ -121,6 +126,18 @@ export function RabView({ project, rab, company, onUpdateProject, forcedTab }: R
             <PieChart size={14} />
             <span>Proporsi Biaya</span>
           </button>
+          {scheduleSlot && (
+            <button
+              type="button"
+              data-active={activeTab === "jadwal"}
+              onClick={() => setActiveTab("jadwal")}
+              className="row items-center"
+              style={{ gap: 6 }}
+            >
+              <CalendarClock size={14} />
+              <span>Jadwal & Tim</span>
+            </button>
+          )}
         </div>
 
         <div className="row" style={{ gap: 8 }}>
@@ -451,6 +468,8 @@ export function RabView({ project, rab, company, onUpdateProject, forcedTab }: R
         </div>
       )}
 
+      {activeTab === "jadwal" && scheduleSlot}
+
       {/* Main Tab 2: Client Formal Proposal Document */}
       {activeTab === "surat" && (
         <div
@@ -515,6 +534,16 @@ export function RabView({ project, rab, company, onUpdateProject, forcedTab }: R
               Terbilang: &quot;{terbilangRupiah(rab.grandTotalRounded)}&quot;
             </div>
           </div>
+
+          {duration && (
+            <div style={{ fontSize: 13.5 }}>
+              <strong>Waktu Pelaksanaan:</strong>
+              <p style={{ margin: "4px 0", color: "#444" }}>
+                ± {duration.calendarDays} hari kalender (± {duration.weeks} minggu) sejak pekerjaan dimulai
+                {duration.endDateText ? `, perkiraan selesai ${duration.endDateText}` : ""}.
+              </p>
+            </div>
+          )}
 
           {/* Ketentuan Pembayaran */}
           <div style={{ fontSize: 13.5 }}>

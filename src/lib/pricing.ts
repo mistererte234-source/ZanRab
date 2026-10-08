@@ -55,8 +55,8 @@ export const SECTIONS: Record<string, string> = {
   VI: "PEKERJAAN KUSEN, PINTU & JENDELA",
   VII: "PEKERJAAN LANTAI & KERAMIK",
   VIII: "PEKERJAAN PENGECATAN",
-  IX: "PEKERJAAN INSTALASI LISTRIK",
-  X: "PEKERJAAN SANITASI & INSTALASI AIR",
+  IX: "PEKERJAAN LISTRIK, MEKANIKAL & ARUS LEMAH",
+  X: "PEKERJAAN SANITASI, AIR BERSIH & DRAINASE",
   XI: "PEKERJAAN LAIN-LAIN",
   XII: "PEKERJAAN TAMBAHAN",
 };
@@ -208,6 +208,32 @@ const CATALOG: CatalogItem[] = [
   C("LST.LAMPU", "IX", "Instalasi titik lampu", "bh", 225000),
   C("LST.STOPKONTAK", "IX", "Instalasi stop kontak", "bh", 225000),
   C("LST.MCB", "IX", "Box MCB + MCB", "bh", 350000),
+  // --- MEP lanjutan (harga ESTIMASI kasar — sesuaikan dengan harga setempat) ---
+  C("MEK.ACUNIT", "IX", "Unit AC split 1 PK standar", "unit", 4000000, undefined, "estimasi"),
+  C("MEK.ACINSTAL", "IX", "Instalasi AC (pipa ±3 m, kabel, bracket, vakum)", "unit", 750000, undefined, "estimasi"),
+  C("MEK.ACPIPA", "IX", "Tambahan pipa & kabel AC > 3 m", "m1", 150000, undefined, "estimasi"),
+  C("MEK.EXHAUST", "IX", "Exhaust fan + instalasi", "bh", 350000, undefined, "estimasi"),
+  C("MEK.WATERHEATER", "IX", "Water heater listrik 30 L + pipa air panas", "unit", 2750000, undefined, "estimasi"),
+  C("LST.PLN", "IX", "Penyambungan / tambah daya PLN", "VA", 1000, undefined, "estimasi — cek tarif PLN terbaru"),
+  C("LST.GROUNDING", "IX", "Grounding / pembumian", "titik", 1250000, undefined, "estimasi"),
+  C("LST.PETIR", "IX", "Penangkal petir konvensional", "ls", 6000000, undefined, "estimasi"),
+  C("LST.TV", "IX", "Titik TV + kabel antena", "titik", 250000, undefined, "estimasi"),
+  C("LST.LAN", "IX", "Titik data / LAN (UTP Cat6)", "titik", 300000, undefined, "estimasi"),
+  C("LST.CCTV", "IX", "Kamera CCTV + kabel + pemasangan", "titik", 1250000, undefined, "estimasi"),
+  C("LST.DVR", "IX", "DVR/NVR + harddisk CCTV", "unit", 2500000, undefined, "estimasi"),
+  C("LST.BEL", "IX", "Bel rumah + instalasi", "unit", 300000, undefined, "estimasi"),
+  C("AIR.PDAM", "X", "Sambungan PDAM (meter + pipa ke rumah)", "ls", 2000000, undefined, "estimasi — biaya PDAM tiap daerah beda"),
+  C("AIR.SUMURBOR", "X", 'Sumur bor Ø 3–4"', "m1", 175000, undefined, "estimasi"),
+  C("AIR.POMPA", "X", "Pompa air sumur dangkal + instalasi", "unit", 1750000, undefined, "estimasi"),
+  C("AIR.POMPAJET", "X", "Pompa jet pump sumur dalam + instalasi", "unit", 3250000, undefined, "estimasi"),
+  C("AIR.POMPADORONG", "X", "Pompa pendorong ke toren + instalasi", "unit", 1500000, undefined, "estimasi"),
+  C("AIR.TOREN520", "X", "Toren air 520 L + instalasi", "unit", 1500000, undefined, "estimasi"),
+  C("AIR.TOREN1050", "X", "Toren air 1.050 L + instalasi", "unit", 2300000, undefined, "estimasi"),
+  C("AIR.TOREN1550", "X", "Toren air 1.550 L + instalasi", "unit", 3200000, undefined, "estimasi"),
+  C("AIR.TOREN2000", "X", "Toren air 2.000 L + instalasi", "unit", 4000000, undefined, "estimasi"),
+  C("AIR.MENARA", "X", "Menara toren baja ± 3 m", "unit", 4000000, undefined, "estimasi"),
+  C("AIR.DRAINASE", "X", "Saluran air hujan 30 cm (pas. bata / U-ditch)", "m1", 275000, undefined, "estimasi"),
+  C("AIR.BAKKONTROL", "X", "Bak kontrol 40×40 cm", "bh", 450000, undefined, "estimasi"),
   C("AIR.PVC4", "X", 'Instalasi air kotor PVC 4"', "m1", 125000),
   C("AIR.PVC3", "X", 'Instalasi air kotor PVC 3"', "m1", 120000),
   C("AIR.PVC34", "X", 'Instalasi air bersih PVC 3/4"', "m1", 50000),
@@ -220,6 +246,27 @@ const CATALOG: CatalogItem[] = [
   C("LL.MEJADAPUR", "XI", "Meja dapur beton + top granit", "m1", 1500000, undefined, "estimasi"),
   C("LL.BERSIHAKHIR", "XI", "Pembersihan akhir", "ls", 750000, undefined, "estimasi"),
 ];
+
+/**
+ * Gabungkan database tersimpan (milik pengguna) dengan default terbaru:
+ * item/resource/analisa BARU ditambahkan, yang sudah ada (mungkin sudah diedit pengguna) tidak disentuh.
+ */
+export function mergePriceDb(saved: PriceDb | undefined | null): PriceDb {
+  const def = defaultPriceDb();
+  if (!saved) return def;
+  const addMissing = <T extends { code: string }>(cur: T[] | undefined, base: T[]) => {
+    const list = [...(cur ?? [])];
+    const have = new Set(list.map((x) => x.code));
+    for (const b of base) if (!have.has(b.code)) list.push(structuredClone(b));
+    return list;
+  };
+  return {
+    ...saved,
+    resources: addMissing(saved.resources, def.resources),
+    analyses: addMissing(saved.analyses, def.analyses),
+    catalog: addMissing(saved.catalog, def.catalog),
+  };
+}
 
 export function defaultPriceDb(): PriceDb {
   return {
