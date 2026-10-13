@@ -162,3 +162,31 @@ describe("audit pondasi", () => {
     expect(auditProject(newProject({ floors: [f(0), f(1)], params: DEFAULT_PARAMS })).some((i) => i.id === "pilecap")).toBe(false);
   });
 });
+
+import { relocateSideWindows, sideWallWindows, addCorridorWindow } from "../src/lib/planEdit";
+describe("jendela dinding samping", () => {
+  it("jendela kamar di dinding samping dipindah ke dinding koridor 60 cm; jendela KM dihapus", () => {
+    const p = kosStrip(); // lebar 3,2: dinding kiri x=0,05 (samping), kanan x=3,15 dianggap koridor bila outline lebih lebar
+    const plan: Plan = {
+      ...p,
+      outline: { width: 7.25, depth: 6.7 },
+      walls: p.walls.map((w) => (w.id === "w4" ? { ...w, exterior: false } : w)),
+      openings: [
+        ...p.openings,
+        { id: "j1", type: "window", wallId: "w3", at: { x: 0.05, y: 1.3 }, width: 1.2, height: 1.2, leaves: 2 },
+        { id: "j2", type: "window", wallId: "w3", at: { x: 0.05, y: 3.4 }, width: 0.6, height: 1.2, leaves: 1 },
+      ],
+    };
+    expect(sideWallWindows(plan).length).toBe(2);
+    const r = relocateSideWindows(plan);
+    expect(r.moved).toBe(1);
+    expect(r.removed).toBe(1);
+    const w = r.plan.openings.find((o) => o.label?.startsWith("Jendela koridor"))!;
+    expect(w.at.x).toBeCloseTo(3.15, 2);
+    expect(w.width).toBe(0.6);
+    expect(sideWallWindows(r.plan).length).toBe(0);
+    // tombol manual
+    const m = addCorridorWindow(plan, "r3");
+    expect(m.openings.length).toBe(plan.openings.length + 1);
+  });
+});

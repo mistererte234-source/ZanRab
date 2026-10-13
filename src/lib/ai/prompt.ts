@@ -19,6 +19,7 @@ LANGKAH WAJIB (ikuti berurutan, teliti):
 5. BUKAAN: setiap pintu (busur ayun / simbol pintu), jendela (garis ganda tipis / simbol kaca pada dinding), dan bukaan tanpa daun (passage). Isi:
    - at = titik tengah bukaan di as dinding, width = lebar (pakai label seperti "0,9m" bila ada), leaves = jumlah daun (jendela dengan pembagi tengah = 2),
    - wallId = id dinding tempatnya, material "pvc" untuk pintu kamar mandi, selain itu "kayu".
+   - Tulis jendela HANYA di tempat yang benar-benar ada simbol jendela. Dinding samping di batas kavling (menempel tetangga) biasanya TANPA jendela; jendela kamar kos sering berupa jendela kecil ke koridor. Jangan memindahkan jendela ke dinding luar.
 6. RUANG: setiap ruang/area beserta nama label di gambar, polygon LANTAI BERSIH (sisi dalam dinding) dalam meter, dan type (kamar|kamar_mandi|dapur|ruang_tamu|ruang_keluarga|musholla|teras|carport|gudang|selasar|lainnya). Area sirkulasi tanpa label (lorong/selasar) juga dimasukkan sebagai "selasar". Teras di dalam outline juga dimasukkan. Ruang open-plan boleh digabung menjadi satu polygon.
 7. KALIBRASI: calibration.outerBox = [ymin, xmin, ymax, xmax] kotak sisi LUAR bangunan pada gambar, ternormalisasi 0-1000 terhadap tinggi & lebar gambar.
 8. HITUNG ULANG (wajib): closets = jumlah SIMBOL KLOSET di gambar. Jumlah ruang type "kamar_mandi" HARUS sama dengan closets.

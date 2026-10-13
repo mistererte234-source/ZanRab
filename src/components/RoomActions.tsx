@@ -3,7 +3,7 @@
 import { Scissors, Trash2, X } from "lucide-react";
 import type { Plan, RoomType } from "@/lib/types";
 import { polygonArea } from "@/lib/geometry";
-import { removeRoom, splitRoom } from "@/lib/planEdit";
+import { addCorridorWindow, removeRoom, splitRoom } from "@/lib/planEdit";
 
 /** Nama bawaan per jenis — dipakai saat jenis diganti dan nama lama hanya label generik */
 const DEFAULT_NAME: Partial<Record<RoomType, string>> = {
@@ -84,6 +84,11 @@ export function RoomActions({ plan, roomId, onChange, onClose }: { plan: Plan; r
         <button type="button" className="btn btn-sm" onClick={() => onChange(splitRoom(plan, roomId, 3))}>
           Bagi jadi 3
         </button>
+        {room.type === "kamar" && (
+          <button type="button" className="btn btn-sm" onClick={() => onChange(addCorridorWindow(plan, roomId))} title="Jendela 60 cm 1 daun di dinding sisi koridor">
+            + Jendela koridor
+          </button>
+        )}
         <button
           type="button"
           className="btn btn-sm btn-ghost"

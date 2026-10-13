@@ -5,7 +5,7 @@
  */
 import { floorsOf } from "./building";
 import { mepOf } from "./defaults";
-import { suspectDoubleWetRooms, wetRoomsWithoutDoor } from "./planEdit";
+import { sideWallWindows, suspectDoubleWetRooms, wetRoomsWithoutDoor } from "./planEdit";
 import { roomLabels } from "./labels";
 import { computeStructure } from "./structure";
 import type { Floor, Plan, Project, Room } from "./types";
@@ -14,6 +14,7 @@ import { detectColumns, polygonArea } from "./geometry";
 export type AuditFix =
   | { kind: "split_rooms"; floorId: string; roomIds: string[] }
   | { kind: "add_wet_doors"; floorId: string }
+  | { kind: "relocate_side_windows"; floorId: string }
   | { kind: "retype_rooms"; floorId: string; roomIds: string[]; type: "kamar_mandi"; name: string }
   | { kind: "scale_outline"; floorId: string; width: number; depth: number }
   | { kind: "apply_structure" }
@@ -139,6 +140,18 @@ export function auditFloor(floor: Floor, multi: boolean): AuditIssue[] {
       floorName: tag,
       message: `${noDoor.length} KM belum punya pintu di denah (${noDoor.slice(0, 6).map((r) => r.name).join(", ")}${noDoor.length > 6 ? ", …" : ""}). Pintu PVC & kusennya belum terhitung.`,
       fix: { label: `Tambah ${noDoor.length} pintu PVC 70 cm`, action: { kind: "add_wet_doors", floorId: floor.id } },
+    });
+
+  // 2e. Jendela di dinding samping kavling (biasanya menempel tetangga) — hanya lantai berkamar banyak (kos) atau ada di PDF CAD
+  const sideWin = sideWallWindows(plan);
+  if (sideWin.length && (kamar.length >= 4 || floor.hint))
+    out.push({
+      id: `${floor.id}:jendela-samping`,
+      level: "warning",
+      floorId: floor.id,
+      floorName: tag,
+      message: `${sideWin.length} jendela terbaca di dinding SAMPING bangunan (batas kavling). Bila dinding samping menempel tetangga / di denah tidak ada simbol jendela di sana, jendela ini tidak mungkin ada — kusen, kaca & bukaan dinding ikut keliru.`,
+      fix: { label: "Pindahkan jendela kamar ke dinding koridor (60 cm), hapus sisanya", action: { kind: "relocate_side_windows", floorId: floor.id } },
     });
 
   // 3. Ukuran luar vs rantai dimensi

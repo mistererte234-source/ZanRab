@@ -23,7 +23,7 @@ import { FloorBar } from "@/components/FloorBar";
 import { AuditPanel } from "@/components/AuditPanel";
 import { RoomActions } from "@/components/RoomActions";
 import { auditProject, type AuditFix } from "@/lib/audit";
-import { addMissingWetDoors, scalePlan, splitRoom } from "@/lib/planEdit";
+import { addMissingWetDoors, relocateSideWindows, scalePlan, splitRoom } from "@/lib/planEdit";
 import { computeStructure, structureToParams } from "@/lib/structure";
 import { mepOf } from "@/lib/defaults";
 import { PdfImportDialog, type PdfSelection } from "@/components/PdfImportDialog";
@@ -426,6 +426,14 @@ export default function Home() {
         const plan = fix.roomIds.reduce((pl, id) => splitRoom(pl, id, 2), fl.plan);
         updateFloor(pid, fix.floorId, { plan });
         setToast(`${fix.roomIds.length} blok KM dibagi jadi 2 bilik — cek posisi pintunya di denah`);
+        return;
+      }
+      case "relocate_side_windows": {
+        const fl = floorsOf(currentProject).find((x) => x.id === fix.floorId);
+        if (!fl?.plan) return;
+        const r = relocateSideWindows(fl.plan);
+        updateFloor(pid, fix.floorId, { plan: r.plan });
+        setToast(`${r.moved} jendela dipindah ke dinding koridor, ${r.removed} dihapus — cek di denah`);
         return;
       }
       case "add_wet_doors": {

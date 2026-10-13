@@ -167,3 +167,80 @@ export function addMissingWetDoors(plan: Plan): Plan {
   }
   return { ...plan, openings: [...plan.openings, ...added] };
 }
+
+/** Jendela pada dinding luar SAMPING (sejajar arah panjang bangunan, di tepi kiri/kanan kavling) */
+export function sideWallWindows(plan: Plan): Opening[] {
+  const W = plan.outline.width;
+  const sideWalls = plan.walls.filter((w) => {
+    const vertical = Math.abs(w.a.x - w.b.x) < 0.05;
+    const x = (w.a.x + w.b.x) / 2;
+    return w.exterior && vertical && (x < 0.35 || x > W - 0.35);
+  });
+  const ids = new Set(sideWalls.map((w) => w.id));
+  return plan.openings.filter((o) => o.type === "window" && ((o.wallId && ids.has(o.wallId)) || sideWalls.some((w) => pointToSegment(o.at, w.a, w.b).d < 0.1)));
+}
+
+/**
+ * Dinding samping menempel tetangga → jendela di dinding itu tidak mungkin ada.
+ * Jendela kamar dipindah ke dinding seberang (biasanya dinding koridor) sebagai jendela kecil 60 cm 1 daun;
+ * jendela ruang lain (KM, dll.) dihapus.
+ */
+export function relocateSideWindows(plan: Plan, width = 0.6): { plan: Plan; moved: number; removed: number } {
+  const side = sideWallWindows(plan);
+  if (!side.length) return { plan, moved: 0, removed: 0 };
+  const W = plan.outline.width;
+  const keep = plan.openings.filter((o) => !side.includes(o));
+  const added: Opening[] = [];
+  let removed = 0;
+  for (const o of side) {
+    const inward = o.at.x < W / 2 ? 1 : -1;
+    const probe = { x: o.at.x + inward * 0.5, y: o.at.y };
+    const room = plan.rooms.find((r) => {
+      const b = bbox(r.polygon);
+      return probe.x >= b.x0 && probe.x <= b.x1 && probe.y >= b.y0 - 0.05 && probe.y <= b.y1 + 0.05;
+    });
+    if (!room || room.type !== "kamar") {
+      removed++;
+      continue;
+    }
+    const b = bbox(room.polygon);
+    const targetX = inward > 0 ? b.x1 : b.x0;
+    const wall = plan.walls
+      .filter((w) => Math.abs(w.a.x - w.b.x) < 0.05 && Math.abs((w.a.x + w.b.x) / 2 - targetX) < 0.25)
+      .find((w) => Math.min(w.a.y, w.b.y) <= b.y1 && Math.max(w.a.y, w.b.y) >= b.y0);
+    if (!wall) {
+      removed++;
+      continue;
+    }
+    const wx = (wall.a.x + wall.b.x) / 2;
+    const busy = [...keep, ...added].filter((x) => pointToSegment(x.at, wall.a, wall.b).d < 0.1 && x.at.y >= b.y0 - 0.5 && x.at.y <= b.y1 + 0.5);
+    const free = (y: number) => busy.every((x) => Math.abs(x.at.y - y) > (x.width + width) / 2 + 0.1);
+    const cands = [(b.y0 + b.y1) / 2, b.y0 + 0.2 + width / 2, b.y1 - 0.2 - width / 2, o.at.y];
+    const y = cands.find(free);
+    if (y === undefined) {
+      removed++;
+      continue;
+    }
+    added.push({ ...o, id: uid("j"), wallId: wall.id, at: { x: round(wx, 4), y: round(y, 4) }, width, leaves: 1, label: `Jendela koridor ${room.name}` });
+  }
+  return { plan: { ...plan, openings: [...keep, ...added] }, moved: added.length, removed };
+}
+
+/** Tambah jendela kecil di dinding koridor (sisi ruang yang paling dekat ke tengah bangunan) */
+export function addCorridorWindow(plan: Plan, roomId: string, width = 0.6): Plan {
+  const room = plan.rooms.find((r) => r.id === roomId);
+  if (!room) return plan;
+  const b = bbox(room.polygon);
+  const W = plan.outline.width;
+  const targetX = Math.abs(b.x0 - W / 2) < Math.abs(b.x1 - W / 2) ? b.x0 : b.x1;
+  const wall = plan.walls
+    .filter((w) => Math.abs(w.a.x - w.b.x) < 0.05 && Math.abs((w.a.x + w.b.x) / 2 - targetX) < 0.25)
+    .find((w) => Math.min(w.a.y, w.b.y) <= b.y1 && Math.max(w.a.y, w.b.y) >= b.y0);
+  if (!wall) return plan;
+  const busy = plan.openings.filter((x) => pointToSegment(x.at, wall.a, wall.b).d < 0.1 && x.at.y >= b.y0 - 0.5 && x.at.y <= b.y1 + 0.5);
+  const free = (y: number) => busy.every((x) => Math.abs(x.at.y - y) > (x.width + width) / 2 + 0.1);
+  const y = [(b.y0 + b.y1) / 2, b.y0 + 0.2 + width / 2, b.y1 - 0.2 - width / 2].find(free);
+  if (y === undefined) return plan;
+  const o: Opening = { id: uid("j"), type: "window", wallId: wall.id, at: { x: round((wall.a.x + wall.b.x) / 2, 4), y: round(y, 4) }, width, height: 1.2, leaves: 1, label: `Jendela koridor ${room.name}` };
+  return { ...plan, openings: [...plan.openings, o] };
+}
