@@ -1,4 +1,5 @@
 "use client";
+import { roomLabelCount, roomLabels } from "./labels";
 /**
  * Baca PDF denah di browser (pdf.js):
  *  - PDF hasil CAD punya lapisan teks → angka dimensi, nama ruang, skala & judul lantai dibaca PASTI
@@ -112,7 +113,7 @@ export async function readPdf(file: File, onProgress?: (done: number, total: num
       }
       if (/^[A-Z]'?$/.test(s) || /^\d+'?$/.test(s)) continue; // as grid & nomor anak tangga
       if (/1\s*:\s*\d+/.test(s) || /\bDENAH\b/i.test(s)) continue;
-      if (/[A-Za-z]{2,}/.test(s) && s.length <= 40) labels.push({ text: s, ...pct(l.x + l.w / 2, l.y) });
+      if ((/[A-Za-z]{2,}/.test(s) || /^K\s?\d{1,3}$/i.test(s)) && s.length <= 40) labels.push({ text: s, ...pct(l.x + l.w / 2, l.y) });
     }
     const big = dims.filter((d) => d.value >= 500).length;
     const unit: PdfPageInfo["unit"] = dims.length < 3 ? null : big >= dims.length * 0.6 ? "mm" : dims.some((d) => !Number.isInteger(d.value)) ? "m" : "cm";
@@ -188,9 +189,12 @@ export function buildHint(p: PdfPageInfo): string | null {
     `- Angka dimensi terbaca: ${dimList}`,
     labelList ? `- Label ruang/teks terbaca: ${labelList}` : "",
     p.elevations.length ? `- Elevasi lantai: ${p.elevations.slice(0, 12).join(", ")}` : "",
+    roomLabelCount(p.labels.map((l) => l.text)) ? `- Label kamar terbaca: ${roomLabels(p.labels.map((l) => l.text)).join(", ")} → hasil WAJIB berisi tepat ${roomLabelCount(p.labels.map((l) => l.text))} ruang type "kamar".` : "",
+    `- Satu label "KM/WC" bisa mewakili blok berisi 2 bilik KM (2 kloset, 2 pintu) — pisahkan menjadi 2 ruang kamar_mandi bila ada 2 kloset.`,
     `- Ruang berlabel K1, K2, … / KAMAR = type "kamar"; KM/WC = "kamar_mandi"; VOID tetap dimasukkan sebagai ruang bernama "VOID" (type "lainnya"); BALCONY/BALKON, AREA JEMUR, TANGGA = "lainnya"; lorong/selasar = "selasar"; CARPORT = "carport".`,
     `- Utamakan angka di atas. Jangan mengarang ukuran dari piksel bila angkanya tersedia.`,
   ]
     .filter(Boolean)
     .join("\n");
 }
+

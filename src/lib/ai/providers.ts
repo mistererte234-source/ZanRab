@@ -140,6 +140,7 @@ export function sanitizePlan(raw: Raw): Plan {
         ? { outerBox: raw.calibration.outerBox.map((v: unknown) => numOr(v)) as [number, number, number, number] }
         : null,
     notes: Array.isArray(raw.notes) ? raw.notes.map(String) : [],
+    closets: Number.isFinite(Number(raw.closets)) && Number(raw.closets) >= 0 ? Math.round(Number(raw.closets)) : undefined,
   };
   // outline fallback dari rantai dimensi
   const top = plan.chains.find((c) => c.side === "top" || c.side === "bottom");

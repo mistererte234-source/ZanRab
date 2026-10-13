@@ -94,9 +94,15 @@ export function takeoff(plan: Plan, P: ProjectParams): { items: QuantityItem[]; 
   const n = columns.length;
 
   const wetRooms = plan.rooms.filter((r) => r.type === "kamar_mandi");
-  const dryRooms = plan.rooms.filter((r) => r.type !== "kamar_mandi");
+  const isVoid = (r: Room) => /\b(void|vide)\b/i.test(r.name);
+  const isBalcony = (r: Room) => /balkon|balcony/i.test(r.name);
+  const carportFloor = P.carportFloor ?? "keramik_kasar";
+  /** Ruang berlantai granit: semua kecuali KM, VOID, dan carport (bila carport bukan granit) */
+  const dryRooms = plan.rooms.filter((r) => r.type !== "kamar_mandi" && !isVoid(r) && (r.type !== "carport" || carportFloor === "granit"));
+  const carportRooms = plan.rooms.filter((r) => r.type === "carport");
   const area = (rs: Room[]) => rs.reduce((a, r) => a + polygonArea(r.polygon), 0);
-  const netFloor = area(plan.rooms);
+  /** Luas lantai (tanpa VOID — lubang lantai tidak diplafon / dilantai) */
+  const netFloor = area(plan.rooms.filter((r) => !isVoid(r)));
   const indoorFloor = area(plan.rooms.filter((r) => r.type !== "teras" && r.type !== "carport"));
 
   // ---------- I. PERSIAPAN ----------
@@ -309,6 +315,20 @@ export function takeoff(plan: Plan, P: ProjectParams): { items: QuantityItem[]; 
     wetTile += (contact - doorW) * P.wetWallTileHeight;
   }
   add({ code: "LNT.DINDINGKM", section: "VII", name: `Dinding keramik KM 30x60 t=${f(P.wetWallTileHeight)} m`, unit: "m2", volume: wetTile, formula: `(keliling dinding KM − lebar pintu) × ${f(P.wetWallTileHeight)} m`, source: "denah" });
+  if (carportFloor === "keramik_kasar" && carportRooms.length) {
+    const ca = area(carportRooms);
+    add({ code: "LNT.CARPORT", section: "VII", name: "Lantai carport keramik kasar 40x40", unit: "m2", volume: ca * waste, formula: `${f(ca)} m² × ${f(waste)}`, source: "denah" });
+  }
+  const balconies = plan.rooms.filter(isBalcony);
+  if (balconies.length) {
+    let rl = 0;
+    for (const r of balconies) {
+      const xs = r.polygon.map((p) => p.x);
+      const ys = r.polygon.map((p) => p.y);
+      rl += Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+    }
+    add({ code: "LL.RAILING", section: "XI", name: "Railing balkon besi hollow + cat", unit: "m1", volume: rl, formula: `Sisi terpanjang balkon (${balconies.map((r) => r.name).join(", ")}) — asumsi 1 sisi terbuka`, source: "asumsi" });
+  }
   if (P.skirting) {
     let sk = 0;
     for (const r of dryRooms) {

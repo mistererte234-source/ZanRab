@@ -300,6 +300,14 @@ export function ParamsEditor({ params, onChange }: ParamsEditorProps) {
       {activeTab === "finishing" && (
         <div className="grid grid-3">
           <div className="field">
+            <label htmlFor="pf-carport">Lantai carport</label>
+            <select id="pf-carport" className="input" value={params.carportFloor ?? "keramik_kasar"} onChange={(e) => onChange({ ...params, carportFloor: e.target.value as ProjectParams["carportFloor"] })}>
+              <option value="keramik_kasar">Keramik kasar 40×40</option>
+              <option value="granit">Granit 60×60 (sama dengan ruang)</option>
+              <option value="rabat">Rabat beton saja</option>
+            </select>
+          </div>
+          <div className="field">
             <label>Waste Keramik / Granit (%)</label>
             <input
               type="number"

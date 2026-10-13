@@ -20,6 +20,12 @@ import { computeSchedule, scheduleSettingsOf, workDayToDate } from "@/lib/schedu
 import { buildZandorPlan, downloadJson, zandorFileName } from "@/lib/zandor";
 import { anyPlan, floorsOf } from "@/lib/building";
 import { FloorBar } from "@/components/FloorBar";
+import { AuditPanel } from "@/components/AuditPanel";
+import { RoomActions } from "@/components/RoomActions";
+import { auditProject, type AuditFix } from "@/lib/audit";
+import { scalePlan, splitRoom } from "@/lib/planEdit";
+import { computeStructure, structureToParams } from "@/lib/structure";
+import { mepOf } from "@/lib/defaults";
 import { PdfImportDialog, type PdfSelection } from "@/components/PdfImportDialog";
 import type { PdfPageInfo } from "@/lib/pdf";
 import { uid } from "@/lib/geometry";
@@ -73,7 +79,7 @@ export default function Home() {
   const [showUploader, setShowUploader] = useState(false);
   const [visited, setVisited] = useState<Record<string, boolean>>({});
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
-  const [, setSelectedEntityType] = useState<"wall" | "opening" | "room" | null>(null);
+  const [selectedEntityType, setSelectedEntityType] = useState<"wall" | "opening" | "room" | null>(null);
 
   const [analyzing, setAnalyzing] = useState<{ projectId: string; floorId: string; label: string | null } | null>(null);
   const analyzingId = analyzing?.projectId ?? null;
@@ -407,6 +413,63 @@ export default function Home() {
   }
 
   // ---------------------------------------------------------------------------
+  // Audit konsistensi + perbaikan satu klik
+  // ---------------------------------------------------------------------------
+  const audit = currentProject ? auditProject(currentProject) : [];
+  const applyFix = (fix: AuditFix) => {
+    if (!currentProject) return;
+    const pid = currentProject.id;
+    switch (fix.kind) {
+      case "split_rooms": {
+        const fl = floorsOf(currentProject).find((x) => x.id === fix.floorId);
+        if (!fl?.plan) return;
+        const plan = fix.roomIds.reduce((pl, id) => splitRoom(pl, id, 2), fl.plan);
+        updateFloor(pid, fix.floorId, { plan });
+        setToast(`${fix.roomIds.length} blok KM dibagi jadi 2 bilik — cek posisi pintunya di denah`);
+        return;
+      }
+      case "scale_outline": {
+        const fl = floorsOf(currentProject).find((x) => x.id === fix.floorId);
+        if (!fl?.plan) return;
+        updateFloor(pid, fix.floorId, { plan: scalePlan(fl.plan, fix.width, fix.depth) });
+        setToast(`Ukuran bangunan disesuaikan ke ${fix.width} × ${fix.depth} m`);
+        return;
+      }
+      case "apply_structure": {
+        const r = computeStructure(currentProject);
+        if (!r) return;
+        const sp = structureToParams(r);
+        updateProject(pid, (p) => ({
+          params: {
+            ...p.params,
+            column: sp.column,
+            sloof: sp.sloof,
+            ringBeam: sp.ringBeam,
+            floorBeam: sp.floorBeam,
+            ...(sp.upperSlabThickness ? { upperSlabThickness: sp.upperSlabThickness } : {}),
+            foundation: sp.foundation,
+            pileCap: sp.pileCap,
+          },
+        }));
+        setToast("Ukuran pra-desain SNI diterapkan — tetap verifikasi ke ahli struktur");
+        return;
+      }
+      case "septic_capacity":
+        updateProject(pid, (p) => ({ params: { ...p.params, mep: { ...mepOf(p.params), septicMode: "kapasitas" } } }));
+        setToast("Septic dihitung dari jumlah penghuni — atur penghuni/kamar & kapasitas di Parameter → MEP");
+        return;
+      case "carport_floor":
+        updateProject(pid, (p) => ({ params: { ...p.params, carportFloor: fix.value } }));
+        return;
+    }
+  };
+  const openFloor = (floorId: string) => {
+    setActiveFloorId(floorId);
+    setShowUploader(false);
+    goTab("denah");
+  };
+
+  // ---------------------------------------------------------------------------
   // Step state
   // ---------------------------------------------------------------------------
   const floorsCur = currentProject ? floorsOf(currentProject) : [];
@@ -704,6 +767,15 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="col cek-side" style={{ gap: 14 }}>
+                  {selectedEntityType === "room" && selectedEntityId && activePlan.rooms.some((r) => r.id === selectedEntityId) && (
+                    <RoomActions
+                      plan={activePlan}
+                      roomId={selectedEntityId}
+                      onChange={(plan) => updateFloor(currentProject.id, activeFloor.id, { plan })}
+                      onClose={() => setSelectedEntityId(null)}
+                    />
+                  )}
+                  <AuditPanel compact title="Cek otomatis" issues={audit.filter((i) => i.floorId === activeFloor.id)} onFix={applyFix} />
                   <CheckPanel key={activeFloor.id} plan={activePlan} onFocusWall={focusWall} />
                   <button type="button" className="btn" onClick={() => setShowUploader(true)}>
                     <RefreshCw size={15} />
@@ -725,12 +797,14 @@ export default function Home() {
             {/* STEP 3: Parameter */}
             {activeTab === "params" && (
               <div className="col" style={{ gap: 16 }}>
+                <AuditPanel compact title="Audit sebelum hitung" issues={audit} onFix={applyFix} onOpenFloor={openFloor} />
                 <ParamsEditor params={currentProject.params} onChange={(params) => updateProject(currentProject.id, { params })} />
                 <StructureView project={currentProject} company={company} onUpdateProject={(patch) => updateProject(currentProject.id, patch)} />
               </div>
             )}
 
             {/* STEP 4: RAB */}
+            {activeTab === "rab" && rabData && <AuditPanel title="Audit RAB" issues={audit} onFix={applyFix} onOpenFloor={openFloor} />}
             {activeTab === "rab" && rabData && (
               <RabView
                 project={currentProject}

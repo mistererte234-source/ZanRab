@@ -139,6 +139,8 @@ export const ASSUMED_LABOR: Record<string, RawLabor> = {
   "AIR.RISER1": { instalatir: 0.1 },
   "AIR.TALANGTEGAK": { instalatir: 0.1 },
   "AIR.SEPTICKAP": { instalatir: 2, pekerja: 5 },
+  "LNT.CARPORT": { batu: 0.25, pekerja: 0.15 },
+  "LL.RAILING": { besi: 0.4, pekerja: 0.2 },
 };
 
 /** Durasi minimum per bagian (hari kerja), mis. curing beton & pengeringan plester */

@@ -608,3 +608,13 @@ textarea.input { height: auto; min-height: 80px; padding: 10px 12px; resize: ver
   .no-print, .mesh, .topbar, .footer.no-print, .splash-overlay { display: none !important; }
   body { background: #fff; color: #000; }
 }
+
+/* Audit & aksi ruang */
+.tone-blue { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.audit-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 15px; border: 1px solid color-mix(in srgb, var(--orange) 30%, transparent); background: color-mix(in srgb, var(--orange) 7%, transparent); }
+.audit-item[data-level="error"] { border-color: color-mix(in srgb, var(--red) 32%, transparent); background: color-mix(in srgb, var(--red) 6%, transparent); }
+.audit-item[data-level="info"] { border-color: var(--hairline); background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.audit-item .issue-icon { flex-shrink: 0; margin-top: 1px; }
+.audit-ok { display: flex; gap: 10px; align-items: center; color: #1f9d48; font-size: 14px; }
+.room-actions .field { margin: 0; }
+.audit-item .check-msg { flex: none; }

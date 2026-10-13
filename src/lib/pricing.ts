@@ -260,6 +260,8 @@ const CATALOG: CatalogItem[] = [
   C("AIR.RISER1", "X", 'Pipa tegak air bersih PVC 1" + fitting', "m1", 85000, undefined, "estimasi"),
   C("AIR.TALANGTEGAK", "X", 'Pipa talang tegak PVC 3" + klem', "m1", 110000, undefined, "estimasi"),
   C("AIR.SEPTICKAP", "X", "Septic tank biofilter (per unit kapasitas) + resapan", "unit", 7500000, undefined, "estimasi — harga & kapasitas ikut pabrik"),
+  C("LNT.CARPORT", "VII", "Lantai carport keramik kasar 40x40", "m2", 165000, undefined, "estimasi"),
+  C("LL.RAILING", "XI", "Railing balkon besi hollow + cat", "m1", 750000, undefined, "estimasi"),
   C("LL.MEJADAPUR", "XI", "Meja dapur beton + top granit", "m1", 1500000, undefined, "estimasi"),
   C("LL.BERSIHAKHIR", "XI", "Pembersihan akhir", "ls", 750000, undefined, "estimasi"),
 ];

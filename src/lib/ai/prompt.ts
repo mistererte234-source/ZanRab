@@ -3,7 +3,7 @@
  * Prinsip: AI hanya MEMBACA gambar → JSON geometri. Semua hitungan volume dilakukan engine deterministik.
  */
 
-export const EXTRACTION_PROMPT = `Kamu adalah quantity surveyor & drafter senior Indonesia. Tugasmu MEMBACA gambar denah rumah ini dan mengubahnya menjadi data geometri JSON yang presisi. JANGAN menghitung biaya.
+export const EXTRACTION_PROMPT = `Kamu adalah quantity surveyor & drafter senior Indonesia. Tugasmu MEMBACA gambar denah bangunan ini (rumah, kos, ruko) dan mengubahnya menjadi data geometri JSON yang presisi. JANGAN menghitung biaya.
 
 SISTEM KOORDINAT
 - Satuan METER. Origin (0,0) = pojok KIRI-ATAS sisi LUAR bangunan. Sumbu X ke kanan, sumbu Y ke BAWAH.
@@ -21,7 +21,10 @@ LANGKAH WAJIB (ikuti berurutan, teliti):
    - wallId = id dinding tempatnya, material "pvc" untuk pintu kamar mandi, selain itu "kayu".
 6. RUANG: setiap ruang/area beserta nama label di gambar, polygon LANTAI BERSIH (sisi dalam dinding) dalam meter, dan type (kamar|kamar_mandi|dapur|ruang_tamu|ruang_keluarga|musholla|teras|carport|gudang|selasar|lainnya). Area sirkulasi tanpa label (lorong/selasar) juga dimasukkan sebagai "selasar". Teras di dalam outline juga dimasukkan. Ruang open-plan boleh digabung menjadi satu polygon.
 7. KALIBRASI: calibration.outerBox = [ymin, xmin, ymax, xmax] kotak sisi LUAR bangunan pada gambar, ternormalisasi 0-1000 terhadap tinggi & lebar gambar.
-8. notes: catat ketidakpastian (angka buram, dimensi yang diasumsikan, simbol ambigu).
+8. HITUNG ULANG (wajib): closets = jumlah SIMBOL KLOSET di gambar. Jumlah ruang type "kamar_mandi" HARUS sama dengan closets.
+   Blok KM yang dibagi partisi menjadi beberapa bilik (tiap bilik berisi 1 kloset dan punya pintu sendiri, mis. KM bertolak-belakang di antara dua kamar kos) = BEBERAPA ruang kamar_mandi terpisah + dinding partisi di antaranya + 1 pintu per bilik — walaupun hanya ada SATU label "KM/WC".
+   Setiap label kamar (K1, K2, …, KAMAR, K.TIDUR) = SATU ruang "kamar" tersendiri. Jangan menggabung dua kamar menjadi satu ruang.
+9. notes: catat ketidakpastian (angka buram, dimensi yang diasumsikan, simbol ambigu).
 
 ATURAN KETELITIAN
 - Prioritaskan angka dimensi tertulis di atas ukuran piksel.
@@ -107,6 +110,7 @@ export const PLAN_JSON_SCHEMA = {
       properties: { outerBox: { type: "array", items: { type: "number" } } },
       required: ["outerBox"],
     },
+    closets: { type: "integer" },
     notes: { type: "array", items: { type: "string" } },
   },
   required: ["outline", "wallThickness", "chains", "walls", "openings", "rooms", "calibration", "notes"],

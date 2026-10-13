@@ -82,6 +82,8 @@ export interface Plan {
   columns: Point[] | null;
   calibration: ImageCalibration | null;
   notes: string[];
+  /** Jumlah simbol kloset yang dihitung AI di gambar (untuk cek jumlah KM) */
+  closets?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -135,6 +137,8 @@ export interface ProjectParams {
   exteriorPaintSeparate: boolean;
   // MEP
   autoMep: boolean;
+  /** Lantai carport: granit seperti ruang lain, keramik kasar, atau cukup rabat beton (default keramik kasar) */
+  carportFloor?: "granit" | "keramik_kasar" | "rabat";
   septicTank: boolean;
   kitchenCounterLength: number; // m1 meja dapur, 0 = tidak ada
   // Komersial
