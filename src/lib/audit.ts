@@ -8,10 +8,12 @@ import { mepOf } from "./defaults";
 import { suspectDoubleWetRooms } from "./planEdit";
 import { roomLabels } from "./labels";
 import { computeStructure } from "./structure";
-import type { Floor, Plan, Project } from "./types";
+import type { Floor, Plan, Project, Room } from "./types";
+import { polygonArea } from "./geometry";
 
 export type AuditFix =
   | { kind: "split_rooms"; floorId: string; roomIds: string[] }
+  | { kind: "retype_rooms"; floorId: string; roomIds: string[]; type: "kamar_mandi"; name: string }
   | { kind: "scale_outline"; floorId: string; width: number; depth: number }
   | { kind: "apply_structure" }
   | { kind: "septic_capacity" }
@@ -55,32 +57,74 @@ export function auditFloor(floor: Floor, multi: boolean): AuditIssue[] {
       message: `PDF mencantumkan ${labels.length} kamar (${labels.slice(0, 12).join(", ")}${labels.length > 12 ? ", …" : ""}), AI membaca ${kamar.length} ruang kamar. Periksa kamar yang tergabung/terlewat, atau analisa ulang.`,
     });
 
-  // 2. Jumlah KM vs kloset yang dihitung AI / pola KM gabungan
+  // 2a. "VOID" kecil berukuran sama dengan bilik KM di lantai yang sama → hampir pasti KM salah label
+  const size = (r: Room) => {
+    const xs = r.polygon.map((p) => p.x);
+    const ys = r.polygon.map((p) => p.y);
+    return [Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)].sort((a, b) => a - b);
+  };
+  const fakeVoids = plan.rooms.filter((r) => {
+    if (r.type === "kamar_mandi" || !/\b(void|vide)\b/i.test(r.name) || polygonArea(r.polygon) > 3.2) return false;
+    const [a, b] = size(r);
+    return km.some((k) => {
+      const [c, d] = size(k);
+      return Math.abs(a - c) <= 0.15 && Math.abs(b - d) <= 0.15;
+    });
+  });
+  if (fakeVoids.length)
+    out.push({
+      id: `${floor.id}:void-km`,
+      level: "error",
+      floorId: floor.id,
+      floorName: tag,
+      message: `${fakeVoids.length} ruang berlabel VOID berukuran persis sama dengan bilik KM (±${size(fakeVoids[0]).map(fmt).join(" × ")} m). Kemungkinan besar ini KM yang salah label — sebagai VOID ia tidak dihitung lantai, plafon, dan mengurangi luas pelat.`,
+      fix: { label: `Jadikan ${fakeVoids.length} ruang itu KM`, action: { kind: "retype_rooms", floorId: floor.id, roomIds: fakeVoids.map((r) => r.id), type: "kamar_mandi", name: "KM/WC" } },
+    });
+  const kmAfter = km.length + fakeVoids.length;
+
+  // 2b. Jumlah KM vs kloset yang dihitung AI / pola KM gabungan
   const doubles = suspectDoubleWetRooms(plan);
-  if (plan.closets != null && plan.closets > km.length)
+  const splitFix = doubles.length
+    ? { label: `Bagi ${doubles.length} blok KM jadi 2 bilik`, action: { kind: "split_rooms" as const, floorId: floor.id, roomIds: doubles.map((r) => r.id) } }
+    : undefined;
+  if (plan.closets != null && plan.closets > kmAfter)
     out.push({
       id: `${floor.id}:kloset`,
       level: "error",
       floorId: floor.id,
       floorName: tag,
-      message: `AI menghitung ${plan.closets} kloset tetapi hanya ${km.length} ruang KM — ada blok KM berisi lebih dari 1 bilik.`,
-      fix: doubles.length ? { label: `Bagi ${doubles.length} blok KM jadi 2 bilik`, action: { kind: "split_rooms", floorId: floor.id, roomIds: doubles.map((r) => r.id) } } : undefined,
+      message: `AI menghitung ${plan.closets} kloset tetapi hanya ${kmAfter} ruang KM — ada blok KM berisi lebih dari 1 bilik.`,
+      fix: splitFix,
     });
-  else if (doubles.length && kamar.length >= 3 && km.length < kamar.length)
+  else if (doubles.length)
     out.push({
       id: `${floor.id}:km-ganda`,
       level: "warning",
       floorId: floor.id,
       floorName: tag,
-      message: `${kamar.length} kamar tapi ${km.length} KM. ${doubles.length} KM berukuran ±${doubles
-        .map((r) => {
-          const xs = r.polygon.map((p) => p.x);
-          const ys = r.polygon.map((p) => p.y);
-          return `${fmt(Math.max(...xs) - Math.min(...xs))}×${fmt(Math.max(...ys) - Math.min(...ys))}`;
-        })
+      message: `${doubles.map((r) => r.name).join(", ")} berukuran ±${doubles
         .slice(0, 3)
-        .join(", ")} m — pola blok 2 bilik KM bertolak-belakang (tiap kamar punya KM). Cocokkan dengan jumlah kloset di gambar.`,
-      fix: { label: `Bagi ${doubles.length} blok KM jadi 2 bilik`, action: { kind: "split_rooms", floorId: floor.id, roomIds: doubles.map((r) => r.id) } },
+        .map((r) => size(r).reverse().map(fmt).join("×"))
+        .join(", ")} m — pola blok 2 bilik KM (2 kloset, 2 pintu). Cocokkan dengan jumlah kloset di gambar; bila 2, bagi.`,
+      fix: splitFix,
+    });
+  // 2c'. KM lebih banyak dari kamar di lantai kos → ada ruang lain (pantry/cuci) yang terbaca sebagai KM
+  if (kamar.length >= 4 && kmAfter > kamar.length)
+    out.push({
+      id: `${floor.id}:km-lebih`,
+      level: "warning",
+      floorId: floor.id,
+      floorName: tag,
+      message: `${kmAfter} KM${fakeVoids.length ? " (setelah VOID dijadikan KM)" : ""} untuk ${kamar.length} kamar. Bila tiap kamar punya 1 KM, ${kmAfter - kamar.length} di antaranya kemungkinan pantry / area cuci — klik ruangnya di denah lalu ganti jenis.`,
+    });
+  // 2c. Kos: tiap kamar biasanya punya KM sendiri
+  if (kamar.length >= 4 && kmAfter < kamar.length && !doubles.length)
+    out.push({
+      id: `${floor.id}:km-kamar`,
+      level: "warning",
+      floorId: floor.id,
+      floorName: tag,
+      message: `${kamar.length} kamar tetapi ${kmAfter} KM. Bila tiap kamar punya KM dalam, ada ${kamar.length - kmAfter} KM yang belum terbaca — cek di denah (klik ruang → ganti jenis / bagi).`,
     });
 
   // 3. Ukuran luar vs rantai dimensi

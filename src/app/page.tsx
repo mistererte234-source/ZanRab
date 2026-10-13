@@ -428,6 +428,15 @@ export default function Home() {
         setToast(`${fix.roomIds.length} blok KM dibagi jadi 2 bilik — cek posisi pintunya di denah`);
         return;
       }
+      case "retype_rooms": {
+        const fl = floorsOf(currentProject).find((x) => x.id === fix.floorId);
+        if (!fl?.plan) return;
+        let n = 0;
+        const rooms = fl.plan.rooms.map((r) => (fix.roomIds.includes(r.id) ? { ...r, type: fix.type, name: `${fix.name} ${String.fromCharCode(97 + n++)}` } : r));
+        updateFloor(pid, fix.floorId, { plan: { ...fl.plan, rooms } });
+        setToast(`${fix.roomIds.length} ruang dijadikan KM`);
+        return;
+      }
       case "scale_outline": {
         const fl = floorsOf(currentProject).find((x) => x.id === fix.floorId);
         if (!fl?.plan) return;

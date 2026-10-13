@@ -108,3 +108,16 @@ describe("edit denah & audit", () => {
     expect(granit - v("LNT.GRANIT")).toBeCloseTo(6 * 1.05, 2);
   });
 });
+
+describe("audit: VOID salah label", () => {
+  it("VOID seukuran bilik KM → saran jadikan KM; VOID besar (void tangga/taman) tidak", () => {
+    const p = kosStrip();
+    const km = { id: "k", name: "KM/WC", type: "kamar_mandi" as const, polygon: rect(1.62, 2.7, 1.32, 1.24) };
+    const v1 = { id: "v1", name: "VOID", type: "lainnya" as const, polygon: rect(0.15, 2.7, 1.32, 1.24) };
+    const v2 = { id: "v2", name: "VOID", type: "lainnya" as const, polygon: rect(0.15, 0.1, 1.08, 2.33) };
+    const plan: Plan = { ...p, rooms: [p.rooms[0], p.rooms[2], km, v1, v2] };
+    const issues = auditProject(newProject({ floors: [floor(plan)], params: DEFAULT_PARAMS }));
+    const it = issues.find((i) => i.id.endsWith("void-km"))!;
+    expect(it.fix?.action).toMatchObject({ kind: "retype_rooms", roomIds: ["v1"] });
+  });
+});
