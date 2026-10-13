@@ -182,37 +182,80 @@ export default function Home() {
       return out;
     });
 
+  /** Galat sementara (kuota/beban server AI) layak dicoba ulang otomatis sekali */
+  const isTransient = (msg: string) => /\b(429|500|502|503|504)\b|overload|unavailable|rate|quota|RESOURCE_EXHAUSTED|timeout|timed out|Failed to fetch|NetworkError|coba lagi sebentar/i.test(msg);
+
+  const requestPlan = async (dataUrl: string, hint?: string | null) => {
+    const res = await fetch("/api/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(settings.geminiKey ? { "x-gemini-key": settings.geminiKey } : {}),
+        ...(settings.claudeKey ? { "x-anthropic-key": settings.claudeKey } : {}),
+      },
+      body: JSON.stringify({ image: dataUrl, provider: settings.provider, hint: hint ?? null }),
+    });
+    let data: { error?: string; plan?: unknown; meta?: unknown } = {};
+    try {
+      data = await res.json();
+    } catch {
+      throw new Error(res.status === 413 ? "Gambar terlalu besar untuk server." : `Server membalas ${res.status}. Coba lagi sebentar.`);
+    }
+    if (!res.ok || !data.plan) throw new Error(data.error || "Gagal memproses gambar dengan AI Vision");
+    return data as { plan: Plan; meta: unknown };
+  };
+
   const analyze = async (projectId: string, floorId: string, dataUrl: string, hint?: string | null, label?: string | null): Promise<boolean> => {
     setAnalyzing({ projectId, floorId, label: label ?? null });
     setAnalyzeStartedAt(Date.now());
     setAnalyzeError(null);
     try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(settings.geminiKey ? { "x-gemini-key": settings.geminiKey } : {}),
-          ...(settings.claudeKey ? { "x-anthropic-key": settings.claudeKey } : {}),
-        },
-        body: JSON.stringify({ image: dataUrl, provider: settings.provider, hint: hint ?? null }),
-      });
-      let data: { error?: string; plan?: unknown; meta?: unknown } = {};
+      let data: { plan: Plan; meta: unknown };
       try {
-        data = await res.json();
-      } catch {
-        throw new Error(res.status === 413 ? "Gambar terlalu besar untuk server." : `Server membalas ${res.status}. Coba lagi sebentar.`);
+        data = await requestPlan(dataUrl, hint);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (!isTransient(msg)) throw e;
+        // tunggu sebentar lalu coba sekali lagi (mis. batas permintaan per menit API AI)
+        setAnalyzing({ projectId, floorId, label: `${label ? `${label} — ` : ""}server AI sibuk, mencoba ulang…` });
+        await new Promise((r) => setTimeout(r, 12000));
+        setAnalyzeStartedAt(Date.now());
+        data = await requestPlan(dataUrl, hint);
       }
-      if (!res.ok || !data.plan) throw new Error(data.error || "Gagal memproses gambar dengan AI Vision");
-      const plan = data.plan as Plan;
-      updateFloor(projectId, floorId, { plan, analyzeMeta: data.meta as Floor["analyzeMeta"] });
+      const plan = data.plan;
+      updateFloor(projectId, floorId, { plan, analyzeMeta: data.meta as Floor["analyzeMeta"], analyzeError: undefined });
       setToast(`${label ? `${label} — ` : ""}denah terbaca: ${plan.walls.length} dinding, ${plan.openings.length} bukaan, ${plan.rooms.length} ruang`);
       setShowUploader(false);
       return true;
     } catch (err) {
-      setAnalyzeError({ projectId, floorId, message: err instanceof Error ? err.message : String(err) });
+      const message = err instanceof Error ? err.message : String(err);
+      setAnalyzeError({ projectId, floorId, message });
+      updateFloor(projectId, floorId, { analyzeError: message.slice(0, 600) });
       return false;
     } finally {
       setAnalyzing(null);
+    }
+  };
+
+  /** Analisa berurutan; satu lantai gagal tidak menghentikan lantai lain */
+  const analyzeFloors = async (projectId: string, list: Floor[], total: number) => {
+    const failed: string[] = [];
+    for (let i = 0; i < list.length; i++) {
+      const f = list[i];
+      if (!f.imageDataUrl) continue;
+      setActiveFloorId(f.id);
+      const ok = await analyze(projectId, f.id, f.imageDataUrl, f.hint, total > 1 ? `${f.name} (${i + 1}/${list.length})` : null);
+      if (!ok) failed.push(f.name);
+    }
+    if (list.length > 1) {
+      const done = list.length - failed.length;
+      setToast(
+        failed.length
+          ? `${done} dari ${list.length} lantai terbaca. Gagal: ${failed.join(", ")} — buka lantainya lalu klik "Analisa lantai ini".`
+          : `Semua ${list.length} lantai terbaca.`,
+      );
+      const firstFailed = list.find((f) => failed.includes(f.name));
+      setActiveFloorId((firstFailed ?? list[0]).id);
     }
   };
 
@@ -279,12 +322,13 @@ export default function Home() {
     setActiveFloorId(floors[0].id);
     setShowHome(false);
     setActiveTab("denah");
-    for (let i = 0; i < floors.length; i++) {
-      const f = floors[i];
-      setActiveFloorId(f.id);
-      const ok = await analyze(id, f.id, f.imageDataUrl!, f.hint, floors.length > 1 ? `${f.name} (${i + 1}/${floors.length})` : null);
-      if (!ok) break;
-    }
+    await analyzeFloors(id, floors, floors.length);
+  };
+
+  const analyzePending = () => {
+    if (!currentProject || analyzing) return;
+    const list = floorsOf(currentProject).filter((f) => f.imageDataUrl && !f.plan);
+    if (list.length) void analyzeFloors(currentProject.id, list, floorsOf(currentProject).length);
   };
 
   const addFloor = () => {
@@ -372,7 +416,14 @@ export default function Home() {
   const hasPlan = !!currentProject && anyPlan(currentProject);
   const isAnalyzingCurrent = !!currentProject && !!activeFloor && analyzing?.projectId === currentProject.id && analyzing.floorId === activeFloor.id;
   const errorCurrent =
-    currentProject && activeFloor && analyzeError?.projectId === currentProject.id && analyzeError.floorId === activeFloor.id ? analyzeError.message : null;
+    currentProject && activeFloor && analyzeError?.projectId === currentProject.id && analyzeError.floorId === activeFloor.id
+      ? analyzeError.message
+      : activeFloor && !activeFloor.plan && !isAnalyzingCurrent && activeFloor.analyzeError && !showUploader
+        ? activeFloor.analyzeError
+        : null;
+  /** Gambar lantai sudah ada (mis. dari PDF) tapi belum pernah dianalisa */
+  const pendingCurrent = !!activeFloor && !activeFloor.plan && !!activeFloor.imageDataUrl && !isAnalyzingCurrent && !errorCurrent && !showUploader;
+  const pendingCount = floorsCur.filter((f) => f.imageDataUrl && !f.plan).length;
   const inUpload = activeTab === "denah" && (!activePlan || showUploader || isAnalyzingCurrent || !!errorCurrent);
   const activeStep: StepId = activeTab === "denah" ? (inUpload ? "upload" : "cek") : activeTab;
 
@@ -563,7 +614,36 @@ export default function Home() {
             {/* STEP 1: Upload / analisa */}
             {activeTab === "denah" && inUpload && activeFloor && (
               <div className="col" style={{ gap: 14 }}>
-                {isAnalyzingCurrent || errorCurrent ? (
+                {pendingCurrent ? (
+                  <div className="card glass pending-floor">
+                    <img src={activeFloor.imageDataUrl!} alt={`Gambar ${activeFloor.name}`} />
+                    <div className="col" style={{ gap: 10 }}>
+                      <h3 style={{ margin: 0 }}>{activeFloor.name} belum dianalisa</h3>
+                      <p className="faint" style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5 }}>
+                        Gambar lantai ini sudah tersimpan{activeFloor.hint ? " beserta angka ukuran dari PDF" : ""}, tapi AI belum membacanya
+                        (analisa sebelumnya terhenti, misalnya halaman dimuat ulang atau server AI sibuk).
+                      </p>
+                      <div className="row wrap" style={{ gap: 8 }}>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          disabled={!!analyzing}
+                          onClick={() => void analyze(currentProject.id, activeFloor.id, activeFloor.imageDataUrl!, activeFloor.hint, multiFloor ? activeFloor.name : null)}
+                        >
+                          <RefreshCw size={16} /> Analisa lantai ini
+                        </button>
+                        {pendingCount > 1 && (
+                          <button type="button" className="btn" disabled={!!analyzing} onClick={analyzePending}>
+                            Analisa semua yang belum ({pendingCount})
+                          </button>
+                        )}
+                        <button type="button" className="btn btn-ghost" onClick={() => setShowUploader(true)}>
+                          Ganti gambar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : isAnalyzingCurrent || errorCurrent ? (
                   <AnalyzingCard
                     imageUrl={activeFloor.imageDataUrl}
                     startedAt={analyzeStartedAt}

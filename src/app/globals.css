@@ -533,6 +533,11 @@ textarea.input { height: auto; min-height: 80px; padding: 10px 12px; resize: ver
 .floor-dot[data-state="ok"] { color: #1f9d48; background: color-mix(in srgb, var(--green) 20%, transparent); }
 .floor-chip[data-active="true"] .floor-dot[data-state="ok"] { color: #fff; }
 .floor-dot[data-state="error"] { color: var(--red); }
+.floor-dot[data-state="pending"] { color: #b26a00; background: color-mix(in srgb, var(--orange, #f59e0b) 22%, transparent); }
+.floor-chip[data-active="true"] .floor-dot[data-state="pending"], .floor-chip[data-active="true"] .floor-dot[data-state="error"] { color: #fff; }
+.pending-floor { display: grid; grid-template-columns: minmax(0, 220px) 1fr; gap: 18px; align-items: center; }
+.pending-floor img { width: 100%; max-height: 260px; object-fit: contain; border-radius: 12px; background: #fff; border: 1px solid var(--hairline); }
+@media (max-width: 640px) { .pending-floor { grid-template-columns: 1fr; } }
 .pdf-pages { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; max-height: 56vh; overflow: auto; padding: 2px; }
 .pdf-page { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 16px; border: 1px solid var(--hairline); background: color-mix(in srgb, var(--text) 3%, transparent); transition: border-color 0.2s, background 0.2s; }
 .pdf-page[data-on="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); }

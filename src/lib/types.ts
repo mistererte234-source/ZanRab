@@ -293,6 +293,8 @@ export interface Floor {
   height?: number;
   /** Petunjuk teks dari PDF CAD (dimensi, label) untuk AI */
   hint?: string;
+  /** Pesan galat analisa AI terakhir (disimpan agar tetap terlihat setelah halaman dimuat ulang) */
+  analyzeError?: string;
 }
 
 /** Pengawas: hadir sepanjang proyek, tidak membatasi kecepatan */

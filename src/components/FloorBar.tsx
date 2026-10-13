@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2, Loader2, CircleAlert, Check } from "lucide-react";
+import { Plus, Trash2, Loader2, CircleAlert, Check, Clock } from "lucide-react";
 import type { Floor } from "@/lib/types";
 
 export function FloorBar({
@@ -25,7 +25,8 @@ export function FloorBar({
     <div className="floorbar no-print" role="tablist" aria-label="Lantai">
       {floors.map((f) => {
         const active = f.id === activeId;
-        const state = analyzingId === f.id ? "busy" : errorId === f.id ? "error" : f.plan ? "ok" : "empty";
+        const state =
+          analyzingId === f.id ? "busy" : errorId === f.id || (!f.plan && f.analyzeError) ? "error" : f.plan ? "ok" : f.imageDataUrl ? "pending" : "empty";
         return (
           <button
             key={f.id}
@@ -35,9 +36,10 @@ export function FloorBar({
             className="floor-chip"
             data-active={active}
             onClick={() => onSelect(f.id)}
+            title={state === "pending" ? "Gambar sudah ada, belum dianalisa" : state === "error" ? "Analisa gagal — buka untuk coba lagi" : undefined}
           >
             <span className="floor-dot" data-state={state} aria-hidden="true">
-              {state === "busy" ? <Loader2 size={12} className="spin" /> : state === "error" ? <CircleAlert size={12} /> : state === "ok" ? <Check size={11} strokeWidth={3} /> : null}
+              {state === "busy" ? <Loader2 size={12} className="spin" /> : state === "error" ? <CircleAlert size={12} /> : state === "ok" ? <Check size={11} strokeWidth={3} /> : state === "pending" ? <Clock size={11} /> : null}
             </span>
             {f.name}
           </button>
