@@ -206,6 +206,7 @@ export function PlanCanvas({
                 <polygon
                   points={pts}
                   className={`room ${isSel ? "sel" : ""}`}
+                  data-type={r.type}
                   onClick={(e) => {
                     e.stopPropagation();
                     onSelect(r.id, "room");

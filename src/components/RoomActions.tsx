@@ -5,6 +5,21 @@ import type { Plan, RoomType } from "@/lib/types";
 import { polygonArea } from "@/lib/geometry";
 import { removeRoom, splitRoom } from "@/lib/planEdit";
 
+/** Nama bawaan per jenis — dipakai saat jenis diganti dan nama lama hanya label generik */
+const DEFAULT_NAME: Partial<Record<RoomType, string>> = {
+  kamar: "Kamar",
+  kamar_mandi: "KM/WC",
+  dapur: "Pantry",
+  ruang_tamu: "R. Tamu",
+  ruang_keluarga: "R. Keluarga",
+  musholla: "Musholla",
+  teras: "Teras",
+  carport: "Carport",
+  gudang: "Gudang",
+  selasar: "Selasar",
+};
+const GENERIC = /^(km|wc|km\s*\/\s*wc|kamar mandi|void|vide|pantry|dapur|selasar|lorong|ruang|r\d+)\b[\w\s/.-]{0,6}$/i;
+
 const TYPES: { v: RoomType; l: string }[] = [
   { v: "kamar", l: "Kamar tidur" },
   { v: "kamar_mandi", l: "Kamar mandi / WC" },
@@ -42,7 +57,16 @@ export function RoomActions({ plan, roomId, onChange, onClose }: { plan: Plan; r
       </div>
       <div className="field">
         <label htmlFor="ra-type">Jenis</label>
-        <select id="ra-type" className="input" value={room.type} onChange={(e) => patch({ type: e.target.value as RoomType })}>
+        <select
+          id="ra-type"
+          className="input"
+          value={room.type}
+          onChange={(e) => {
+            const type = e.target.value as RoomType;
+            const nm = GENERIC.test(room.name.trim()) && DEFAULT_NAME[type] ? DEFAULT_NAME[type]! : room.name;
+            patch({ type, name: nm });
+          }}
+        >
           {TYPES.map((t) => (
             <option key={t.v} value={t.v}>
               {t.l}
