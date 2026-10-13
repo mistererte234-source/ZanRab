@@ -19,6 +19,13 @@ export const DEFAULT_MEP: MepParams = {
   cctvCameras: 0,
   doorbell: false,
   drainage: false,
+  tankCount: 1,
+  roomMeter: "tidak",
+  septicMode: "standar",
+  occupantsPerRoom: 1,
+  septicUnitCapacity: 10,
+  smokeDetector: false,
+  apar: false,
 };
 
 export const mepOf = (p: ProjectParams): MepParams => ({ ...DEFAULT_MEP, ...(p.mep ?? {}) });

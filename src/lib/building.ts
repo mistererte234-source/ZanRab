@@ -9,7 +9,8 @@
  * Item dengan kode yang sama dari semua lantai digabung menjadi satu baris RAB (rumus per lantai tetap ditampilkan).
  */
 import { polygonArea, round } from "./geometry";
-import { takeoff, type TakeoffContext } from "./takeoff";
+import { septicByCapacity, takeoff, type TakeoffContext } from "./takeoff";
+import { mepOf } from "./defaults";
 import type { Floor, Plan, Project, ProjectParams, QuantityItem } from "./types";
 
 export function floorsOf(p: Project): Floor[] {
@@ -89,6 +90,7 @@ export function takeoffBuilding(floors: Floor[], P: ProjectParams): BuildingTake
     for (const it of items) it.name = it.name.replace(/\s*\(1 lantai\)/i, "").replace(/× 1 lt$/, "").trim();
     for (const it of items) it.formula = it.formula.replace(/ × 1 lt\b/g, "");
     const kept = items.filter((it) => {
+      if (it.code === "AIR.SEPTICKAP") return false; // dihitung sekali untuk seluruh gedung (di bawah)
       if (isGroundOnly(it.code)) return isGround;
       if (TOP_ONLY.has(it.code)) return isTop;
       if (it.code === "STR.RINGBALOK" && !isTop && !/lintel|pinggang/i.test(it.name)) return false; // diganti balok lantai
@@ -124,9 +126,50 @@ export function takeoffBuilding(floors: Floor[], P: ProjectParams): BuildingTake
     perFloor.push({ id: fl.id, name: fl.name, level: fl.level, items: kept });
   }
 
+  const short = (n: string) => n.replace(/^Lantai\s*/i, "Lt ");
+  // ---------- MEP gedung bertingkat (sekali per gedung) ----------
+  const extra: QuantityItem[] = [];
+  const M = mepOf(P);
+  const heights = withPlan.map((x) => x.height ?? P.wallHeight);
+  const below = (i: number) => heights.slice(0, i).reduce((a, h) => a + h, 0);
+  const totalH = heights.reduce((a, h) => a + h, 0);
+  const qty = (pf: BuildingTakeoff["perFloor"][number], code: string) => pf.items.find((x) => x.code === code)?.volume ?? 0;
+  if (withPlan.length > 1 && P.autoMep) {
+    // pipa tegak air kotor: tiap lantai atas, 1 jalur tegak per ±2 KM (asumsi KM bertumpuk berpasangan), turun sampai lantai dasar
+    let riser4 = 0;
+    const parts4: string[] = [];
+    perFloor.forEach((pf, i) => {
+      if (i === 0) return;
+      const km = qty(pf, "AIR.CLOSET");
+      if (!km) return;
+      const stacks = Math.max(1, Math.ceil(km / 2));
+      riser4 += stacks * below(i);
+      parts4.push(`${short(pf.name)}: ${stacks} jalur × ${f(below(i))} m`);
+    });
+    if (riser4 > 0)
+      extra.push({ code: "AIR.RISER4", section: "X", name: 'Pipa tegak air kotor PVC 4" (shaft)', unit: "m1", volume: Math.ceil(riser4), formula: `${parts4.join(" + ")} (asumsi 1 jalur per ±2 KM bertumpuk)`, source: "asumsi" });
+    extra.push({ code: "AIR.RISER1", section: "X", name: 'Pipa tegak air bersih PVC 1"', unit: "m1", volume: Math.ceil(totalH + 3), formula: `Tinggi gedung ${f(totalH)} m + 3 m ke toren atas (1 jalur)`, source: "asumsi" });
+    const topPlan = top.plan!;
+    const downs = Math.max(2, Math.ceil((2 * (topPlan.outline.width + topPlan.outline.depth)) / 20));
+    extra.push({ code: "AIR.TALANGTEGAK", section: "X", name: 'Pipa talang tegak PVC 3"', unit: "m1", volume: Math.ceil(downs * totalH), formula: `${downs} titik (1 per ±20 m keliling, min 2) × ${f(totalH)} m`, source: "asumsi" });
+    extra.push({ code: "LST.PANELUTAMA", section: "IX", name: "Panel utama (MDP) gedung", unit: "unit", volume: 1, formula: "1 panel di lantai dasar; box MCB tiap lantai = panel lantai", source: "asumsi" });
+    let feeder = 0;
+    const partsF: string[] = [];
+    perFloor.forEach((pf, i) => {
+      if (i === 0) return;
+      feeder += below(i) + 10;
+      partsF.push(`${short(pf.name)}: ${f(below(i))} + 10 m`);
+    });
+    extra.push({ code: "LST.FEEDER", section: "IX", name: "Kabel feeder + conduit ke panel lantai", unit: "m1", volume: Math.ceil(feeder), formula: `${partsF.join(" + ")} (naik + jalur mendatar ±10 m)`, source: "asumsi" });
+  }
+  if (P.septicTank && M.septicMode === "kapasitas") {
+    const rooms = withPlan.reduce((a, x) => a + x.plan!.rooms.filter((r) => r.type === "kamar").length, 0);
+    const sp = septicByCapacity(rooms, M);
+    extra.push({ code: "AIR.SEPTICKAP", section: "X", name: sp.name, unit: "unit", volume: sp.units, formula: `Seluruh gedung: ${sp.formula}`, source: "denah" });
+  }
+
   // gabung per kode
   const merged = new Map<string, QuantityItem & { _floors: number }>();
-  const short = (n: string) => n.replace(/^Lantai\s*/i, "Lt ");
   for (const pf of perFloor) {
     for (const it of pf.items) {
       const tag = withPlan.length > 1 ? `${short(pf.name)}: ` : "";
@@ -141,7 +184,7 @@ export function takeoffBuilding(floors: Floor[], P: ProjectParams): BuildingTake
       }
     }
   }
-  const items = [...merged.values()].map(({ _floors, ...it }) => it);
+  const items = [...[...merged.values()].map(({ _floors, ...it }) => it), ...extra];
   // pelat lantai memakai kode STR.PELAT agar terpisah dari dak atap; harga/AHSP sama dengan STR.DAK
   return { items, ctx: groundCtx!, perFloor, grossArea };
 }

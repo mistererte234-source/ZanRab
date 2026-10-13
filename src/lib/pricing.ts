@@ -249,6 +249,17 @@ const CATALOG: CatalogItem[] = [
   C("AIR.CLOSET", "X", "Closet duduk", "bh", 2100000),
   C("AIR.SINK", "X", "Kitchen sink + kran", "unit", 1250000, undefined, "estimasi"),
   C("AIR.SEPTIC", "X", "Septic tank biofilter + resapan", "unit", 3500000, undefined, "estimasi"),
+  // --- Gedung bertingkat / kos (ESTIMASI kasar — wajib cek harga & tarif setempat) ---
+  C("LST.KWHSUB", "IX", "kWh meter token (sub-meter) per kamar + MCB + kabel dari panel", "bh", 850000, undefined, "estimasi — sub-meter milik pemilik, bukan meter PLN"),
+  C("LST.KWHPLN", "IX", "Sambungan PLN prabayar per kamar (biaya PLN + instalasi)", "bh", 1500000, undefined, "estimasi — biaya penyambungan PLN tergantung daya & tarif berlaku, cek PLN"),
+  C("LST.PANELUTAMA", "IX", "Panel utama (MDP) gedung", "unit", 3500000, undefined, "estimasi"),
+  C("LST.FEEDER", "IX", "Kabel feeder NYY 4×6 mm² + conduit ke panel lantai", "m1", 150000, undefined, "estimasi — ukuran kabel wajib dihitung dari beban"),
+  C("LST.SMOKE", "IX", "Detektor asap mandiri (baterai)", "bh", 250000, undefined, "estimasi"),
+  C("LST.APAR", "IX", "APAR 3 kg + bracket + tanda", "unit", 650000, undefined, "estimasi"),
+  C("AIR.RISER4", "X", 'Pipa tegak air kotor PVC 4" (shaft) + fitting', "m1", 150000, undefined, "estimasi"),
+  C("AIR.RISER1", "X", 'Pipa tegak air bersih PVC 1" + fitting', "m1", 85000, undefined, "estimasi"),
+  C("AIR.TALANGTEGAK", "X", 'Pipa talang tegak PVC 3" + klem', "m1", 110000, undefined, "estimasi"),
+  C("AIR.SEPTICKAP", "X", "Septic tank biofilter (per unit kapasitas) + resapan", "unit", 7500000, undefined, "estimasi — harga & kapasitas ikut pabrik"),
   C("LL.MEJADAPUR", "XI", "Meja dapur beton + top granit", "m1", 1500000, undefined, "estimasi"),
   C("LL.BERSIHAKHIR", "XI", "Pembersihan akhir", "ls", 750000, undefined, "estimasi"),
 ];

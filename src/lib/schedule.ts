@@ -129,6 +129,16 @@ export const ASSUMED_LABOR: Record<string, RawLabor> = {
   "AIR.DRAINASE": { batu: 0.15, pekerja: 0.3 },
   "AIR.BAKKONTROL": { batu: 0.5, pekerja: 0.5 },
   "LL.BERSIHAKHIR": { pekerja: 4 },
+  "LST.KWHSUB": { instalatir: 0.4 },
+  "LST.KWHPLN": { instalatir: 0.3 },
+  "LST.PANELUTAMA": { instalatir: 2, pekerja: 1 },
+  "LST.FEEDER": { instalatir: 0.08, pekerja: 0.04 },
+  "LST.SMOKE": { instalatir: 0.1 },
+  "LST.APAR": { pekerja: 0.1 },
+  "AIR.RISER4": { instalatir: 0.15, pekerja: 0.05 },
+  "AIR.RISER1": { instalatir: 0.1 },
+  "AIR.TALANGTEGAK": { instalatir: 0.1 },
+  "AIR.SEPTICKAP": { instalatir: 2, pekerja: 5 },
 };
 
 /** Durasi minimum per bagian (hari kerja), mis. curing beton & pengeringan plester */

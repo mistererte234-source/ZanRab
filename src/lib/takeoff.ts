@@ -406,6 +406,24 @@ export function takeoff(plan: Plan, P: ProjectParams): { items: QuantityItem[]; 
       add({ code: "LST.CCTV", section: "IX", name: "Kamera CCTV + kabel + pemasangan", unit: "titik", volume: M.cctvCameras, formula: "Parameter", source: "parameter" });
       add({ code: "LST.DVR", section: "IX", name: "DVR/NVR + harddisk CCTV", unit: "unit", volume: 1, formula: "1 unit", source: "parameter" });
     }
+    if (M.roomMeter && M.roomMeter !== "tidak" && kamar.length) {
+      const pln = M.roomMeter === "pln_prabayar";
+      add({
+        code: pln ? "LST.KWHPLN" : "LST.KWHSUB",
+        section: "IX",
+        name: pln ? "Sambungan PLN prabayar per kamar" : "kWh meter token (sub-meter) per kamar + MCB + kabel",
+        unit: "bh",
+        volume: kamar.length,
+        formula: `${kamar.length} kamar tidur`,
+        source: "denah",
+      });
+    }
+    if (M.smokeDetector)
+      add({ code: "LST.SMOKE", section: "IX", name: "Detektor asap mandiri (baterai)", unit: "bh", volume: kamar.length + 1, formula: `${kamar.length} kamar + 1 koridor/dapur`, source: "denah" });
+    if (M.apar) {
+      const n = Math.max(1, Math.ceil(indoorFloor / 150));
+      add({ code: "LST.APAR", section: "IX", name: "APAR 3 kg + bracket + tanda", unit: "unit", volume: n, formula: `Asumsi 1 per ±150 m² lantai (${f(indoorFloor)} m²), min 1 per lantai — cek aturan setempat`, source: "asumsi" });
+    }
     if (M.doorbell) add({ code: "LST.BEL", section: "IX", name: "Bel rumah + instalasi", unit: "unit", volume: 1, formula: "1 unit", source: "parameter" });
 
     const usePdam = M.waterSource === "pdam" || M.waterSource === "pdam_dan_sumur";
@@ -419,7 +437,8 @@ export function takeoff(plan: Plan, P: ProjectParams): { items: QuantityItem[]; 
     }
     if (M.tankLiters > 0) {
       const sizeName = M.tankLiters.toLocaleString("id-ID");
-      add({ code: `AIR.TOREN${M.tankLiters}`, section: "X", name: `Toren air ${sizeName} L + instalasi`, unit: "unit", volume: 1, formula: "Parameter", source: "parameter" });
+      const nt = Math.max(1, Math.round(M.tankCount ?? 1));
+      add({ code: `AIR.TOREN${M.tankLiters}`, section: "X", name: `Toren air ${sizeName} L + instalasi`, unit: "unit", volume: nt, formula: nt > 1 ? `${nt} toren × ${sizeName} L = ${(nt * M.tankLiters).toLocaleString("id-ID")} L` : "Parameter", source: "parameter" });
       if (!useWell)
         add({ code: "AIR.POMPADORONG", section: "X", name: "Pompa pendorong ke toren + instalasi", unit: "unit", volume: 1, formula: "Air PDAM dinaikkan ke toren", source: "asumsi" });
       if (M.tankTower) add({ code: "AIR.MENARA", section: "X", name: "Menara toren baja ± 3 m", unit: "unit", volume: 1, formula: "Parameter", source: "parameter" });
@@ -431,8 +450,13 @@ export function takeoff(plan: Plan, P: ProjectParams): { items: QuantityItem[]; 
     }
   }
 
-  if (P.septicTank)
-    add({ code: "AIR.SEPTIC", section: "X", name: "Septic tank biofilter + resapan", unit: "unit", volume: 1, formula: "1 unit", source: "parameter" });
+  if (P.septicTank) {
+    const M = mepOf(P);
+    if (M.septicMode === "kapasitas") {
+      const s = septicByCapacity(plan.rooms.filter((r) => r.type === "kamar").length, M);
+      add({ code: "AIR.SEPTICKAP", section: "X", name: s.name, unit: "unit", volume: s.units, formula: s.formula, source: "denah" });
+    } else add({ code: "AIR.SEPTIC", section: "X", name: "Septic tank biofilter + resapan", unit: "unit", volume: 1, formula: "1 unit", source: "parameter" });
+  }
 
   // ---------- XI. LAIN-LAIN ----------
   if (P.kitchenCounterLength > 0)
@@ -446,4 +470,18 @@ const cm = (m: number) => Math.round(m * 100);
 
 function coverName(c: ProjectParams["roofCover"]) {
   return c === "genteng_beton" ? "Penutup atap genteng beton" : c === "genteng_metal" ? "Penutup atap genteng metal pasir" : "Penutup atap spandek";
+}
+
+/** Septic biofilter berdasar jumlah penghuni: unit = ⌈kamar × penghuni/kamar ÷ kapasitas per unit⌉ */
+export function septicByCapacity(rooms: number, M: { occupantsPerRoom?: number; septicUnitCapacity?: number }) {
+  const per = Math.max(1, M.occupantsPerRoom ?? 1);
+  const cap = Math.max(1, M.septicUnitCapacity ?? 10);
+  const people = Math.max(1, rooms * per);
+  const units = Math.max(1, Math.ceil(people / cap));
+  return {
+    people,
+    units,
+    name: `Septic tank biofilter kapasitas ±${cap} orang/unit + resapan`,
+    formula: `${rooms} kamar × ${per} orang = ${people} orang ÷ ${cap} orang/unit → ${units} unit`,
+  };
 }

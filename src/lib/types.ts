@@ -179,6 +179,20 @@ export interface MepParams {
   doorbell: boolean;
   /** Saluran air hujan keliling bangunan + bak kontrol */
   drainage: boolean;
+  /** Jumlah toren (kos/gedung butuh lebih dari satu) */
+  tankCount?: number;
+  /** Meter listrik per kamar: sub-meter token milik pemilik, atau sambungan PLN prabayar per kamar */
+  roomMeter?: "tidak" | "submeter" | "pln_prabayar";
+  /** Septic: "standar" = 1 unit rumah tinggal; "kapasitas" = jumlah unit dari jumlah penghuni */
+  septicMode?: "standar" | "kapasitas";
+  /** Penghuni per kamar tidur (untuk kapasitas septic) */
+  occupantsPerRoom?: number;
+  /** Kapasitas satu unit septic biofilter (orang) — ikuti spesifikasi pabrik */
+  septicUnitCapacity?: number;
+  /** Detektor asap mandiri tiap kamar + 1 per lantai */
+  smokeDetector?: boolean;
+  /** APAR per lantai */
+  apar?: boolean;
 }
 
 export type PriceMode = "borongan" | "ahsp";

@@ -335,7 +335,7 @@ export function ParamsEditor({ params, onChange }: ParamsEditorProps) {
       {activeTab === "mep" && (
         <div className="col" style={{ gap: 18 }}>
           <div className="mep-note faint">
-            Titik lampu, saklar, stop kontak, MCB, pipa air, kloset, dan septic sudah dihitung otomatis dari denah. Di sini tambahan
+            Titik lampu, saklar, stop kontak, MCB, pipa air, kloset, dan septic sudah dihitung otomatis dari denah (aturan praktis). Di sini tambahan
             MEP-nya. Harga item MEP adalah <strong>estimasi</strong> — sesuaikan di tabel RAB.
           </div>
 
@@ -411,8 +411,44 @@ export function ParamsEditor({ params, onChange }: ParamsEditorProps) {
                   <option value={2000}>2.000 L</option>
                 </select>
               </div>
+              {mep.tankLiters > 0 && (
+                <NumField id="mep-tankn" label="Jumlah toren" value={mep.tankCount ?? 1} min={1} onChange={(v) => setMep("tankCount", Math.max(1, v))} />
+              )}
               <Toggle label="Menara toren" on={mep.tankTower} disabled={mep.tankLiters === 0} onToggle={() => setMep("tankTower", !mep.tankTower)} hintOn="Baja ± 3 m" hintOff="Di atas dak / tanpa" />
               <Toggle label="Drainase keliling" on={mep.drainage} onToggle={() => setMep("drainage", !mep.drainage)} hintOn="Saluran + bak kontrol" hintOff="Tidak" />
+            </div>
+          </div>
+
+          <div className="mep-group">
+            <h4>Kos / gedung bertingkat</h4>
+            <div className="grid grid-3">
+              <div className="field">
+                <label htmlFor="mep-meter">Meter listrik per kamar</label>
+                <select id="mep-meter" className="input" value={mep.roomMeter ?? "tidak"} onChange={(e) => setMep("roomMeter", e.target.value as MepParams["roomMeter"])}>
+                  <option value="tidak">Tidak ada (1 meter gedung)</option>
+                  <option value="submeter">Sub-meter token milik pemilik</option>
+                  <option value="pln_prabayar">PLN prabayar per kamar</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="mep-septic">Septic tank</label>
+                <select id="mep-septic" className="input" value={mep.septicMode ?? "standar"} onChange={(e) => setMep("septicMode", e.target.value as MepParams["septicMode"])}>
+                  <option value="standar">1 unit standar rumah</option>
+                  <option value="kapasitas">Sesuai jumlah penghuni</option>
+                </select>
+              </div>
+              {mep.septicMode === "kapasitas" && (
+                <>
+                  <NumField id="mep-occ" label="Penghuni per kamar" value={mep.occupantsPerRoom ?? 1} min={1} onChange={(v) => setMep("occupantsPerRoom", Math.max(1, v))} />
+                  <NumField id="mep-cap" label="Kapasitas 1 unit septic (orang)" value={mep.septicUnitCapacity ?? 10} min={1} onChange={(v) => setMep("septicUnitCapacity", Math.max(1, v))} />
+                </>
+              )}
+              <Toggle label="Detektor asap" on={!!mep.smokeDetector} onToggle={() => setMep("smokeDetector", !mep.smokeDetector)} hintOn="Tiap kamar + 1/lantai" hintOff="Tidak" />
+              <Toggle label="APAR" on={!!mep.apar} onToggle={() => setMep("apar", !mep.apar)} hintOn="Min. 1 per lantai" hintOff="Tidak" />
+            </div>
+            <div className="faint" style={{ fontSize: 12.5, lineHeight: 1.45, marginTop: 8 }}>
+              Gedung 2 lantai atau lebih otomatis ditambah pipa tegak air kotor &amp; air bersih, talang tegak, panel utama, dan kabel feeder
+              antar lantai (asumsi). Kapasitas septic, ukuran kabel, dan kebutuhan proteksi kebakaran wajib dicek perencana MEP &amp; aturan setempat.
             </div>
           </div>
         </div>
