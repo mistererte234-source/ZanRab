@@ -152,3 +152,13 @@ describe("perbaikan RAB kos", () => {
     expect(structureToParams(r, "footplat_batu_kali").foundation).toBe("footplat_batu_kali");
   });
 });
+
+describe("audit pondasi", () => {
+  it("strauss dengan pile cap seukuran footplat → error + reset", () => {
+    const f = (l: number): Floor => ({ id: `f${l}`, name: `Lantai ${l + 1}`, level: l, plan: samplePlan(), imageDataUrl: null, analyzeMeta: null });
+    const P = { ...DEFAULT_PARAMS, foundation: "strauss_kumbung" as const, pileCap: { w: 2.1, l: 2.1, t: 0.55 } };
+    const issues = auditProject(newProject({ floors: [f(0), f(1)], params: P }));
+    expect(issues.find((i) => i.id === "pilecap")?.fix?.action.kind).toBe("reset_pilecap");
+    expect(auditProject(newProject({ floors: [f(0), f(1)], params: DEFAULT_PARAMS })).some((i) => i.id === "pilecap")).toBe(false);
+  });
+});

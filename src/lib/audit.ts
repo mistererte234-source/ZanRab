@@ -9,7 +9,7 @@ import { suspectDoubleWetRooms, wetRoomsWithoutDoor } from "./planEdit";
 import { roomLabels } from "./labels";
 import { computeStructure } from "./structure";
 import type { Floor, Plan, Project, Room } from "./types";
-import { polygonArea } from "./geometry";
+import { detectColumns, polygonArea } from "./geometry";
 
 export type AuditFix =
   | { kind: "split_rooms"; floorId: string; roomIds: string[] }
@@ -18,7 +18,8 @@ export type AuditFix =
   | { kind: "scale_outline"; floorId: string; width: number; depth: number }
   | { kind: "apply_structure" }
   | { kind: "septic_capacity" }
-  | { kind: "carport_floor"; value: "keramik_kasar" | "rabat" };
+  | { kind: "carport_floor"; value: "keramik_kasar" | "rabat" }
+  | { kind: "reset_pilecap" };
 
 export interface AuditIssue {
   id: string;
@@ -225,5 +226,28 @@ export function auditProject(project: Project): AuditIssue[] {
       message: "Lantai carport dihitung granit 60×60 seperti ruang dalam.",
       fix: { label: "Ganti keramik kasar", action: { kind: "carport_floor", value: "keramik_kasar" } },
     });
+  // 7. Pile cap strauss masih berukuran footplat (sisa pra-desain telapak)
+  if (P.foundation === "strauss_kumbung" && (P.pileCap.w > 1.2 || P.pileCap.t > 0.4))
+    out.push({
+      id: "pilecap",
+      level: "error",
+      floorId: null,
+      floorName: null,
+      message: `Pondasi strauss tetapi pile cap ${Math.round(P.pileCap.w * 100)}×${Math.round(P.pileCap.l * 100)}×${Math.round(P.pileCap.t * 100)} cm — itu ukuran footplat dari pra-desain telapak, bukan pile cap 1 strauss. Ukuran pile cap final ditentukan ahli struktur (jumlah strauss per kolom).`,
+      fix: { label: "Kembalikan pile cap 60×60×20 cm", action: { kind: "reset_pilecap" } },
+    });
+
+  // 8. Jumlah titik kolom lantai atas > lantai dasar (deteksi otomatis dari pertemuan dinding)
+  if (withPlan.length > 1) {
+    const cols = withPlan.map((f) => f.plan!.columns?.length ?? detectColumns(f.plan!.walls, P.maxColumnSpan).length);
+    if (cols.slice(1).some((c) => c > cols[0] * 1.15))
+      out.push({
+        id: "kolom-lantai",
+        level: "warning",
+        floorId: null,
+        floorName: null,
+        message: `Titik kolom terdeteksi per lantai: ${withPlan.map((f, i) => `${f.name} ${cols[i]}`).join(", ")}. Kolom dihitung dari pertemuan dinding, jadi lantai kos dengan banyak partisi mendapat lebih banyak kolom daripada lantai dasar. Secara struktur kolom biasanya menerus dari bawah — cocokkan dengan denah struktur.`,
+      });
+  }
   return out;
 }

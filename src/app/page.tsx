@@ -474,6 +474,10 @@ export default function Home() {
         updateProject(pid, (p) => ({ params: { ...p.params, mep: { ...mepOf(p.params), septicMode: "kapasitas" } } }));
         setToast("Septic dihitung dari jumlah penghuni — atur penghuni/kamar & kapasitas di Parameter → MEP");
         return;
+      case "reset_pilecap":
+        updateProject(pid, (p) => ({ params: { ...p.params, pileCap: { ...DEFAULT_PARAMS.pileCap } } }));
+        setToast("Pile cap dikembalikan 60×60×20 cm — ukuran final tetap dari ahli struktur");
+        return;
       case "carport_floor":
         updateProject(pid, (p) => ({ params: { ...p.params, carportFloor: fix.value } }));
         return;
