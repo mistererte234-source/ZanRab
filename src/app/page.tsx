@@ -15,8 +15,16 @@ import { CheckPanel } from "@/components/CheckPanel";
 import { TotalDock } from "@/components/TotalDock";
 import { OfferPanel, buildWhatsAppUrl } from "@/components/OfferPanel";
 import { ScheduleView } from "@/components/ScheduleView";
+import { StructureView } from "@/components/StructureView";
 import { computeSchedule, scheduleSettingsOf, workDayToDate } from "@/lib/schedule";
 import { buildZandorPlan, downloadJson, zandorFileName } from "@/lib/zandor";
+import { anyPlan, floorsOf } from "@/lib/building";
+import { FloorBar } from "@/components/FloorBar";
+import { PdfImportDialog, type PdfSelection } from "@/components/PdfImportDialog";
+import type { PdfPageInfo } from "@/lib/pdf";
+import { uid } from "@/lib/geometry";
+import { sanitizePlan } from "@/lib/ai/providers";
+import type { Floor, Plan, Project } from "@/lib/types";
 import { computeRab, rupiah } from "@/lib/rab";
 import { fileToDownscaledDataUrl } from "@/lib/image";
 import { DEFAULT_PARAMS } from "@/lib/defaults";
@@ -31,6 +39,8 @@ import {
   Check,
   MessageCircle,
   ChevronLeft,
+  FileJson,
+  Loader2,
 } from "lucide-react";
 
 type Tab = "denah" | "params" | "rab" | "offer";
@@ -65,9 +75,13 @@ export default function Home() {
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
   const [, setSelectedEntityType] = useState<"wall" | "opening" | "room" | null>(null);
 
-  const [analyzingId, setAnalyzingId] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState<{ projectId: string; floorId: string; label: string | null } | null>(null);
+  const analyzingId = analyzing?.projectId ?? null;
   const [analyzeStartedAt, setAnalyzeStartedAt] = useState<number | null>(null);
-  const [analyzeError, setAnalyzeError] = useState<{ projectId: string; message: string } | null>(null);
+  const [analyzeError, setAnalyzeError] = useState<{ projectId: string; floorId: string; message: string } | null>(null);
+  const [activeFloorId, setActiveFloorId] = useState<string | null>(null);
+  const [pdfDialog, setPdfDialog] = useState<{ fileName: string; pages: PdfPageInfo[]; targetId?: string } | null>(null);
+  const [pdfLoading, setPdfLoading] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -111,7 +125,7 @@ export default function Home() {
   const totals = useMemo(() => {
     const out: Record<string, string> = {};
     for (const p of projectList) {
-      if (!p.plan) continue;
+      if (!anyPlan(p)) continue;
       const r = computeRab(p, priceDb);
       if (r) out[p.id] = jt(r.rab.grandTotalRounded);
     }
@@ -146,6 +160,7 @@ export default function Home() {
 
   const openProject = (id: string) => {
     setActiveProjectId(id);
+    setActiveFloorId(null);
     setShowHome(false);
     setShowUploader(false);
     setSelectedEntityId(null);
@@ -156,8 +171,19 @@ export default function Home() {
   // ---------------------------------------------------------------------------
   // AI analysis
   // ---------------------------------------------------------------------------
-  const analyze = async (projectId: string, dataUrl: string) => {
-    setAnalyzingId(projectId);
+  /** Perbarui satu lantai (proyek lama tanpa `floors` = lantai tunggal di field plan/imageDataUrl) */
+  const updateFloor = (projectId: string, floorId: string, patch: Partial<Floor>) =>
+    updateProject(projectId, (p) => {
+      if (p.floors?.length) return { floors: p.floors.map((f) => (f.id === floorId ? { ...f, ...patch } : f)) };
+      const out: Partial<Project> = {};
+      if ("plan" in patch) out.plan = patch.plan ?? null;
+      if ("imageDataUrl" in patch) out.imageDataUrl = patch.imageDataUrl ?? null;
+      if ("analyzeMeta" in patch) out.analyzeMeta = patch.analyzeMeta ?? null;
+      return out;
+    });
+
+  const analyze = async (projectId: string, floorId: string, dataUrl: string, hint?: string | null, label?: string | null): Promise<boolean> => {
+    setAnalyzing({ projectId, floorId, label: label ?? null });
     setAnalyzeStartedAt(Date.now());
     setAnalyzeError(null);
     try {
@@ -168,7 +194,7 @@ export default function Home() {
           ...(settings.geminiKey ? { "x-gemini-key": settings.geminiKey } : {}),
           ...(settings.claudeKey ? { "x-anthropic-key": settings.claudeKey } : {}),
         },
-        body: JSON.stringify({ image: dataUrl, provider: settings.provider }),
+        body: JSON.stringify({ image: dataUrl, provider: settings.provider, hint: hint ?? null }),
       });
       let data: { error?: string; plan?: unknown; meta?: unknown } = {};
       try {
@@ -177,18 +203,40 @@ export default function Home() {
         throw new Error(res.status === 413 ? "Gambar terlalu besar untuk server." : `Server membalas ${res.status}. Coba lagi sebentar.`);
       }
       if (!res.ok || !data.plan) throw new Error(data.error || "Gagal memproses gambar dengan AI Vision");
-      const plan = data.plan as NonNullable<typeof currentProject>["plan"];
-      updateProject(projectId, { plan, analyzeMeta: data.meta as NonNullable<typeof currentProject>["analyzeMeta"] });
-      if (plan) setToast(`Denah terbaca: ${plan.walls.length} dinding, ${plan.openings.length} bukaan, ${plan.rooms.length} ruang`);
+      const plan = data.plan as Plan;
+      updateFloor(projectId, floorId, { plan, analyzeMeta: data.meta as Floor["analyzeMeta"] });
+      setToast(`${label ? `${label} — ` : ""}denah terbaca: ${plan.walls.length} dinding, ${plan.openings.length} bukaan, ${plan.rooms.length} ruang`);
       setShowUploader(false);
+      return true;
     } catch (err) {
-      setAnalyzeError({ projectId, message: err instanceof Error ? err.message : String(err) });
+      setAnalyzeError({ projectId, floorId, message: err instanceof Error ? err.message : String(err) });
+      return false;
     } finally {
-      setAnalyzingId(null);
+      setAnalyzing(null);
     }
   };
 
+  const newProjectTitle = (fileName?: string) =>
+    fileName
+      ? fileName.replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80)
+      : `Proyek ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`;
+
   const handleFile = async (file: File, targetId?: string) => {
+    const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+    if (isPdf) {
+      try {
+        setPdfLoading("Membaca PDF…");
+        const { readPdf } = await import("@/lib/pdf");
+        const pages = await readPdf(file, (d, t) => setPdfLoading(`Membaca halaman ${d} dari ${t}…`));
+        if (!pages.length) throw new Error("PDF tidak berisi halaman");
+        setPdfDialog({ fileName: file.name, pages, targetId });
+      } catch (e) {
+        setToast(e instanceof Error ? `PDF gagal dibaca: ${e.message}` : "PDF gagal dibaca");
+      } finally {
+        setPdfLoading(null);
+      }
+      return;
+    }
     let dataUrl: string;
     try {
       dataUrl = await fileToDownscaledDataUrl(file);
@@ -196,16 +244,105 @@ export default function Home() {
       setToast(e instanceof Error ? e.message : "Gagal membaca gambar");
       return;
     }
-    const id =
-      targetId ??
-      createProject({
-        title: `Proyek ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`,
-      });
+    const id = targetId ?? createProject({ title: newProjectTitle() });
+    const proj = useStore.getState().projects[id];
+    const floor = proj ? (floorsOf(proj).find((f) => f.id === activeFloorId) ?? floorsOf(proj)[0]) : null;
+    const floorId = floor?.id ?? "lt1";
     setActiveProjectId(id);
     setShowHome(false);
     setActiveTab("denah");
-    updateProject(id, { imageDataUrl: dataUrl });
-    void analyze(id, dataUrl);
+    updateFloor(id, floorId, { imageDataUrl: dataUrl, hint: undefined });
+    void analyze(id, floorId, dataUrl, null, (proj?.floors?.length ?? 0) > 1 ? floor?.name : null);
+  };
+
+  const confirmPdf = async (sel: PdfSelection[]) => {
+    const dlg = pdfDialog;
+    setPdfDialog(null);
+    if (!dlg || !sel.length) return;
+    const floors: Floor[] = sel.map((s, i) => ({
+      id: uid("lt"),
+      name: s.name,
+      level: i,
+      plan: null,
+      imageDataUrl: s.page.imageDataUrl,
+      analyzeMeta: null,
+      hint: s.page.hint ?? undefined,
+    }));
+    let id = dlg.targetId;
+    if (id) {
+      if (anyPlan(useStore.getState().projects[id]) && !window.confirm("Denah proyek ini akan diganti dengan halaman PDF yang dipilih. Lanjutkan?")) return;
+      updateProject(id, { floors, plan: null, imageDataUrl: floors[0].imageDataUrl });
+    } else {
+      id = createProject({ title: newProjectTitle(dlg.fileName), floors, imageDataUrl: floors[0].imageDataUrl });
+    }
+    setActiveProjectId(id);
+    setActiveFloorId(floors[0].id);
+    setShowHome(false);
+    setActiveTab("denah");
+    for (let i = 0; i < floors.length; i++) {
+      const f = floors[i];
+      setActiveFloorId(f.id);
+      const ok = await analyze(id, f.id, f.imageDataUrl!, f.hint, floors.length > 1 ? `${f.name} (${i + 1}/${floors.length})` : null);
+      if (!ok) break;
+    }
+  };
+
+  const addFloor = () => {
+    if (!currentProject) return;
+    const id = uid("lt");
+    updateProject(currentProject.id, (p) => {
+      const fl = floorsOf(p);
+      return { floors: [...fl, { id, name: `Lantai ${fl.length + 1}`, level: fl.length, plan: null, imageDataUrl: null, analyzeMeta: null }] };
+    });
+    setActiveFloorId(id);
+    setActiveTab("denah");
+    setShowUploader(true);
+  };
+
+  const removeFloor = (floorId: string) => {
+    if (!currentProject) return;
+    const fl = floorsOf(currentProject);
+    const target = fl.find((f) => f.id === floorId);
+    if (!target || fl.length < 2) return;
+    if (!window.confirm(`Hapus ${target.name}? Denah lantai ini akan hilang.`)) return;
+    const rest = fl.filter((f) => f.id !== floorId).map((f, i) => ({ ...f, level: i }));
+    updateProject(currentProject.id, { floors: rest });
+    setActiveFloorId(rest[0].id);
+  };
+
+  const exportPlanJson = () => {
+    if (!currentProject) return;
+    const fl = floorsOf(currentProject);
+    downloadJson(`denah-${currentProject.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "proyek"}.json`, {
+      schema: "zanrab.denah/v1",
+      title: currentProject.title,
+      floors: fl.map((f) => ({ name: f.name, level: f.level, height: f.height ?? null, plan: f.plan })),
+    });
+  };
+
+  const importPlanJson = async (file: File) => {
+    if (!currentProject) return;
+    try {
+      const data = JSON.parse(await file.text());
+      const raw: { name?: string; level?: number; height?: number | null; plan: unknown }[] = Array.isArray(data?.floors)
+        ? data.floors
+        : data?.walls
+          ? [{ name: activeFloor?.name, plan: data }]
+          : [];
+      if (!raw.length) throw new Error("Format tidak dikenali (butuh {floors:[...]} atau objek denah)");
+      const parsed = raw.map((r, i) => ({ name: r.name || `Lantai ${i + 1}`, height: r.height ?? undefined, plan: sanitizePlan(r.plan as Record<string, unknown>) }));
+      if (parsed.length === 1 && activeFloor) {
+        updateFloor(currentProject.id, activeFloor.id, { plan: parsed[0].plan });
+      } else {
+        const floors: Floor[] = parsed.map((r, i) => ({ id: uid("lt"), name: r.name, level: i, plan: r.plan, imageDataUrl: null, analyzeMeta: null, height: r.height }));
+        updateProject(currentProject.id, { floors });
+        setActiveFloorId(floors[0].id);
+      }
+      setShowUploader(false);
+      setToast(`Denah JSON diimpor (${parsed.length} lantai)`);
+    } catch (e) {
+      setToast(e instanceof Error ? `Impor gagal: ${e.message}` : "Impor gagal");
+    }
   };
 
   const loadDemo = async () => {
@@ -228,14 +365,19 @@ export default function Home() {
   // ---------------------------------------------------------------------------
   // Step state
   // ---------------------------------------------------------------------------
-  const hasPlan = !!currentProject?.plan;
-  const isAnalyzingCurrent = !!currentProject && analyzingId === currentProject.id;
-  const errorCurrent = currentProject && analyzeError?.projectId === currentProject.id ? analyzeError.message : null;
-  const inUpload = activeTab === "denah" && (!hasPlan || showUploader || isAnalyzingCurrent || !!errorCurrent);
+  const floorsCur = currentProject ? floorsOf(currentProject) : [];
+  const activeFloor = floorsCur.find((f) => f.id === activeFloorId) ?? floorsCur[0] ?? null;
+  const activePlan = activeFloor?.plan ?? null;
+  const multiFloor = floorsCur.length > 1;
+  const hasPlan = !!currentProject && anyPlan(currentProject);
+  const isAnalyzingCurrent = !!currentProject && !!activeFloor && analyzing?.projectId === currentProject.id && analyzing.floorId === activeFloor.id;
+  const errorCurrent =
+    currentProject && activeFloor && analyzeError?.projectId === currentProject.id && analyzeError.floorId === activeFloor.id ? analyzeError.message : null;
+  const inUpload = activeTab === "denah" && (!activePlan || showUploader || isAnalyzingCurrent || !!errorCurrent);
   const activeStep: StepId = activeTab === "denah" ? (inUpload ? "upload" : "cek") : activeTab;
 
   const steps: StepDef[] = [
-    { id: "upload", label: "Upload", done: !!currentProject?.imageDataUrl || hasPlan, disabled: false },
+    { id: "upload", label: "Upload", done: floorsCur.some((f) => !!f.imageDataUrl) || hasPlan, disabled: false },
     { id: "cek", label: "Cek", done: hasPlan && (visited.params || visited.rab || visited.offer || false), disabled: !hasPlan },
     { id: "params", label: "Parameter", done: !!visited.params && activeTab !== "params", disabled: !hasPlan },
     { id: "rab", label: "RAB", done: !!visited.rab && activeTab !== "rab", disabled: !hasPlan },
@@ -402,30 +544,57 @@ export default function Home() {
 
             <Stepper steps={steps} active={activeStep} onSelect={selectStep} />
 
+            {activeTab === "denah" && activeFloor && (multiFloor || hasPlan) && (
+              <FloorBar
+                floors={floorsCur}
+                activeId={activeFloor.id}
+                analyzingId={analyzing?.projectId === currentProject.id ? analyzing.floorId : null}
+                errorId={analyzeError?.projectId === currentProject.id ? analyzeError.floorId : null}
+                onSelect={(id) => {
+                  setActiveFloorId(id);
+                  setSelectedEntityId(null);
+                  setShowUploader(false);
+                }}
+                onAdd={addFloor}
+                onRemove={removeFloor}
+              />
+            )}
+
             {/* STEP 1: Upload / analisa */}
-            {activeTab === "denah" && inUpload && (
+            {activeTab === "denah" && inUpload && activeFloor && (
               <div className="col" style={{ gap: 14 }}>
                 {isAnalyzingCurrent || errorCurrent ? (
                   <AnalyzingCard
-                    imageUrl={currentProject.imageDataUrl}
+                    imageUrl={activeFloor.imageDataUrl}
                     startedAt={analyzeStartedAt}
                     error={errorCurrent}
-                    onRetry={() => currentProject.imageDataUrl && void analyze(currentProject.id, currentProject.imageDataUrl)}
+                    label={isAnalyzingCurrent ? analyzing?.label ?? null : null}
+                    onRetry={() =>
+                      activeFloor.imageDataUrl &&
+                      void analyze(currentProject.id, activeFloor.id, activeFloor.imageDataUrl, activeFloor.hint, multiFloor ? activeFloor.name : null)
+                    }
                     onOpenSettings={() => setShowSettingsModal(true)}
                   />
                 ) : (
                   <>
                     <UploadPanel
                       onFile={(f) => void handleFile(f, currentProject.id)}
-                      busy={!!analyzingId}
-                      title={hasPlan ? "Upload ulang denah" : "Upload denah rumah"}
+                      busy={!!analyzingId || !!pdfLoading}
+                      title={activePlan ? `Upload ulang denah${multiFloor ? ` ${activeFloor.name}` : ""}` : `Upload denah${multiFloor ? ` ${activeFloor.name}` : " rumah"}`}
                       hint={
-                        hasPlan
+                        activePlan
                           ? "Hasil bacaan AI yang lama akan diganti dengan hasil baru."
-                          : "Pastikan angka ukuran di denah terbaca jelas. JPG, PNG, atau WEBP."
+                          : "Foto, gambar, atau PDF denah (PDF CAD dibaca langsung angka ukurannya; PDF banyak halaman = banyak lantai)."
                       }
                     />
-                    {hasPlan && (
+                    <div className="row wrap" style={{ gap: 8 }}>
+                      <label className="btn">
+                        <FileJson size={16} />
+                        Impor denah JSON
+                        <input type="file" accept="application/json,.json" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void importPlanJson(f); }} />
+                      </label>
+                    </div>
+                    {activePlan && (
                       <button type="button" className="btn" style={{ alignSelf: "flex-start" }} onClick={() => setShowUploader(false)}>
                         <ChevronLeft size={16} />
                         Kembali ke hasil sebelumnya
@@ -437,14 +606,15 @@ export default function Home() {
             )}
 
             {/* STEP 2: Cek hasil AI */}
-            {activeTab === "denah" && !inUpload && currentProject.plan && (
+            {activeTab === "denah" && !inUpload && activePlan && activeFloor && (
               <div className="cek-layout">
                 <div className="col" style={{ gap: 12, minWidth: 0 }}>
                   <div id="plan-canvas">
                     <PlanCanvas
-                      plan={currentProject.plan}
-                      imageUrl={currentProject.imageDataUrl}
-                      onUpdatePlan={(plan) => updateProject(currentProject.id, { plan })}
+                      key={activeFloor.id}
+                      plan={activePlan}
+                      imageUrl={activeFloor.imageDataUrl}
+                      onUpdatePlan={(plan) => updateFloor(currentProject.id, activeFloor.id, { plan })}
                       selectedId={selectedEntityId}
                       onSelect={(id, type) => {
                         setSelectedEntityId(id);
@@ -454,18 +624,30 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="col cek-side" style={{ gap: 14 }}>
-                  <CheckPanel plan={currentProject.plan} onFocusWall={focusWall} />
+                  <CheckPanel key={activeFloor.id} plan={activePlan} onFocusWall={focusWall} />
                   <button type="button" className="btn" onClick={() => setShowUploader(true)}>
                     <RefreshCw size={15} />
-                    Upload ulang denah
+                    Upload ulang denah{multiFloor ? ` ${activeFloor.name}` : ""}
                   </button>
+                  <div className="btn-pair">
+                    <button type="button" className="btn btn-sm" onClick={exportPlanJson}>
+                      <FileJson size={14} /> Ekspor JSON
+                    </button>
+                    <label className="btn btn-sm">
+                      <FileJson size={14} /> Impor JSON
+                      <input type="file" accept="application/json,.json" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void importPlanJson(f); }} />
+                    </label>
+                  </div>
                 </div>
               </div>
             )}
 
             {/* STEP 3: Parameter */}
             {activeTab === "params" && (
-              <ParamsEditor params={currentProject.params} onChange={(params) => updateProject(currentProject.id, { params })} />
+              <div className="col" style={{ gap: 16 }}>
+                <ParamsEditor params={currentProject.params} onChange={(params) => updateProject(currentProject.id, { params })} />
+                <StructureView project={currentProject} company={company} onUpdateProject={(patch) => updateProject(currentProject.id, patch)} />
+              </div>
             )}
 
             {/* STEP 4: RAB */}
@@ -539,6 +721,19 @@ export default function Home() {
           <div className="toast glass no-print" role="status">
             {toast}
           </div>
+        )}
+
+        {pdfLoading && (
+          <div className="backdrop no-print" role="status" aria-live="polite">
+            <div className="card glass row items-center" style={{ gap: 12 }}>
+              <Loader2 size={18} className="spin" />
+              <span>{pdfLoading}</span>
+            </div>
+          </div>
+        )}
+
+        {pdfDialog && (
+          <PdfImportDialog fileName={pdfDialog.fileName} pages={pdfDialog.pages} onCancel={() => setPdfDialog(null)} onConfirm={(sel) => void confirmPdf(sel)} />
         )}
 
       {/* Settings Modal (Input API Keys) */}

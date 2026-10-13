@@ -23,11 +23,11 @@ const CLAUDE_MODEL = () => process.env.CLAUDE_MODEL || "claude-opus-5-5";
 // ----------------------------------------------------------------------------
 // Gemini — spatial reasoning & bounding box kuat
 // ----------------------------------------------------------------------------
-async function callGemini(imageB64: string, mime: string, key: string): Promise<unknown> {
+async function callGemini(imageB64: string, mime: string, key: string, prompt: string): Promise<unknown> {
   const model = GEMINI_MODEL();
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   const body = (withSchema: boolean) => ({
-    contents: [{ role: "user", parts: [{ inline_data: { mime_type: mime, data: imageB64 } }, { text: EXTRACTION_PROMPT }] }],
+    contents: [{ role: "user", parts: [{ inline_data: { mime_type: mime, data: imageB64 } }, { text: prompt }] }],
     generationConfig: {
       temperature: 0,
       responseMimeType: "application/json",
@@ -52,7 +52,7 @@ async function callGemini(imageB64: string, mime: string, key: string): Promise<
 // ----------------------------------------------------------------------------
 // Claude — OCR angka & kepatuhan instruksi sangat presisi (structured via tool use)
 // ----------------------------------------------------------------------------
-async function callClaude(imageB64: string, mime: string, key: string): Promise<unknown> {
+async function callClaude(imageB64: string, mime: string, key: string, prompt: string): Promise<unknown> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -70,7 +70,7 @@ async function callClaude(imageB64: string, mime: string, key: string): Promise<
           role: "user",
           content: [
             { type: "image", source: { type: "base64", media_type: mime, data: imageB64 } },
-            { type: "text", text: EXTRACTION_PROMPT },
+            { type: "text", text: prompt },
           ],
         },
       ],
@@ -179,8 +179,17 @@ function compare(a: Plan, b: Plan): ConsensusReport["diffs"] {
   }));
 }
 
-export async function extractPlan(provider: ProviderId, imageB64: string, mime: string, keys: ProviderKeys): Promise<ExtractResult> {
+export async function extractPlan(
+  provider: ProviderId,
+  imageB64: string,
+  mime: string,
+  keys: ProviderKeys,
+  hint?: string | null,
+): Promise<ExtractResult> {
   const t0 = Date.now();
+  const prompt = hint ? `${EXTRACTION_PROMPT}\n\n${hint.slice(0, 12000)}` : EXTRACTION_PROMPT;
+  const callGeminiP = (b: string, m: string, k: string) => callGemini(b, m, k, prompt);
+  const callClaudeP = (b: string, m: string, k: string) => callClaude(b, m, k, prompt);
   const gk = keys.gemini || process.env.GEMINI_API_KEY;
   const ck = keys.claude || process.env.ANTHROPIC_API_KEY;
 
@@ -189,7 +198,7 @@ export async function extractPlan(provider: ProviderId, imageB64: string, mime: 
     if (!gk) {
       throw new Error("GEMINI_API_KEY belum diset. Masukkan API Key di Pengaturan AI Vision atau .env.local");
     }
-    const plan = sanitizePlan((await callGemini(imageB64, mime, gk)) as Raw);
+    const plan = sanitizePlan((await callGeminiP(imageB64, mime, gk)) as Raw);
     return { plan, provider: "Gemini", model: GEMINI_MODEL(), durationMs: Date.now() - t0 };
   }
 
@@ -197,18 +206,18 @@ export async function extractPlan(provider: ProviderId, imageB64: string, mime: 
     if (!ck) {
       throw new Error("ANTHROPIC_API_KEY belum diset. Masukkan API Key di Pengaturan AI Vision atau .env.local");
     }
-    const plan = sanitizePlan((await callClaude(imageB64, mime, ck)) as Raw);
+    const plan = sanitizePlan((await callClaudeP(imageB64, mime, ck)) as Raw);
     return { plan, provider: "Claude", model: CLAUDE_MODEL(), durationMs: Date.now() - t0 };
   }
 
   // KONSENSUS: jika hanya satu key yang tersedia, fallback otomatis ke key yang ada
   if (gk && !ck) {
-    const plan = sanitizePlan((await callGemini(imageB64, mime, gk)) as Raw);
+    const plan = sanitizePlan((await callGeminiP(imageB64, mime, gk)) as Raw);
     plan.notes.push("Mode konsensus beralih ke Gemini (ANTHROPIC_API_KEY belum diset)");
     return { plan, provider: "Gemini (Fallback Konsensus)", model: GEMINI_MODEL(), durationMs: Date.now() - t0 };
   }
   if (!gk && ck) {
-    const plan = sanitizePlan((await callClaude(imageB64, mime, ck)) as Raw);
+    const plan = sanitizePlan((await callClaudeP(imageB64, mime, ck)) as Raw);
     plan.notes.push("Mode konsensus beralih ke Claude (GEMINI_API_KEY belum diset)");
     return { plan, provider: "Claude (Fallback Konsensus)", model: CLAUDE_MODEL(), durationMs: Date.now() - t0 };
   }
@@ -217,7 +226,7 @@ export async function extractPlan(provider: ProviderId, imageB64: string, mime: 
       "Belum ada API Key yang dikonfigurasi! Masukkan GEMINI_API_KEY atau ANTHROPIC_API_KEY di panel 'Pengaturan AI Vision' di samping, atau tambahkan di file .env.local."
     );
   }
-  const [g, c] = await Promise.allSettled([callGemini(imageB64, mime, gk!), callClaude(imageB64, mime, ck!)]);
+  const [g, c] = await Promise.allSettled([callGeminiP(imageB64, mime, gk!), callClaudeP(imageB64, mime, ck!)]);
   const pg = g.status === "fulfilled" ? sanitizePlan(g.value as Raw) : null;
   const pc = c.status === "fulfilled" ? sanitizePlan(c.value as Raw) : null;
   if (!pg && !pc) throw new Error(`Kedua model gagal: ${(g as PromiseRejectedResult).reason} | ${(c as PromiseRejectedResult).reason}`);

@@ -1,5 +1,6 @@
 import { ahspUnitPrice, SECTIONS, type PriceDb } from "./pricing";
 import { takeoff } from "./takeoff";
+import { floorsOf, takeoffBuilding } from "./building";
 import type { Project, QuantityItem, RabLine, RabResult, RabSection } from "./types";
 
 export function unitPriceFor(db: PriceDb, project: Project, item: QuantityItem): { price: number; source: RabLine["priceSource"] } {
@@ -16,8 +17,22 @@ export function unitPriceFor(db: PriceDb, project: Project, item: QuantityItem):
 }
 
 export function computeRab(project: Project, db: PriceDb): { rab: RabResult; quantities: QuantityItem[]; ctx: ReturnType<typeof takeoff>["ctx"] } | null {
-  if (!project.plan) return null;
-  const { items, ctx } = takeoff(project.plan, project.params);
+  const floors = floorsOf(project);
+  let items: QuantityItem[];
+  let ctx: ReturnType<typeof takeoff>["ctx"];
+  let buildingGross: number | null = null;
+  if (floors.length > 1) {
+    const b = takeoffBuilding(floors, project.params);
+    if (!b) return null;
+    items = b.items;
+    ctx = b.ctx;
+    buildingGross = b.grossArea;
+  } else {
+    const plan = floors[0]?.plan;
+    if (!plan) return null;
+    ({ items, ctx } = takeoff(plan, project.params));
+  }
+  const groundPlan = floors.find((x) => x.plan)!.plan!;
   const all = [...items, ...project.customLines.map((c) => ({ ...c, section: c.section || "XII" }))];
 
   const allLines: RabLine[] = all
@@ -52,9 +67,9 @@ export function computeRab(project: Project, db: PriceDb): { rab: RabResult; qua
   const grandTotal = beforeTax + ppn;
   const r = P.roundTo > 0 ? P.roundTo : 1;
   const grandTotalRounded = Math.ceil(grandTotal / r) * r;
-  const floors = Math.max(1, P.floorCount || 1);
-  const baseArea = project.plan.outline.width * project.plan.outline.depth;
-  const grossArea = P.grossAreaOverride ?? baseArea * floors;
+  const floorCount = Math.max(1, P.floorCount || 1);
+  const baseArea = groundPlan.outline.width * groundPlan.outline.depth;
+  const grossArea = P.grossAreaOverride ?? buildingGross ?? baseArea * floorCount;
 
   return {
     rab: {

@@ -523,6 +523,38 @@ textarea.input { height: auto; min-height: 80px; padding: 10px 12px; resize: ver
   .bom-table .b-pkg:has(.faint) { display: none; }
 }
 
+/* ---------- Multi-lantai & impor PDF ---------- */
+.floorbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.floor-chip { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px 0 8px; border-radius: 12px; border: 1px solid var(--glass-border); background: var(--glass); color: var(--text-2); font: inherit; font-size: 14px; font-weight: 620; cursor: pointer; transition: background 0.2s, color 0.2s, box-shadow 0.2s; }
+.floor-chip[data-active="true"] { background: var(--accent); color: #fff; border-color: transparent; box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 30%, transparent); }
+.floor-add { padding: 0 14px; border-style: dashed; }
+.floor-dot { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--text) 8%, transparent); }
+.floor-chip[data-active="true"] .floor-dot { background: rgba(255,255,255,0.22); }
+.floor-dot[data-state="ok"] { color: #1f9d48; background: color-mix(in srgb, var(--green) 20%, transparent); }
+.floor-chip[data-active="true"] .floor-dot[data-state="ok"] { color: #fff; }
+.floor-dot[data-state="error"] { color: var(--red); }
+.pdf-pages { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; max-height: 56vh; overflow: auto; padding: 2px; }
+.pdf-page { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 16px; border: 1px solid var(--hairline); background: color-mix(in srgb, var(--text) 3%, transparent); transition: border-color 0.2s, background 0.2s; }
+.pdf-page[data-on="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.pdf-thumb { position: relative; border: 0; padding: 0; border-radius: 10px; overflow: hidden; cursor: pointer; background: #fff; aspect-ratio: 0.71; }
+.pdf-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.pdf-page[data-on="false"] .pdf-thumb img { opacity: 0.45; }
+.pdf-check { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,0.9); border: 2px solid var(--hairline); color: #fff; }
+.pdf-page[data-on="true"] .pdf-check { background: var(--accent); border-color: var(--accent); }
+
+/* ---------- Pra-desain struktur ---------- */
+.struct-inputs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 960px) { .struct-inputs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.struct-table { display: flex; flex-direction: column; border-radius: 14px; overflow: hidden; border: 1px solid var(--hairline); }
+.struct-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 10px; padding: 10px 14px; border-top: 1px solid var(--hairline); align-items: center; font-size: 13.5px; }
+.struct-row:first-child { border-top: 0; }
+.struct-head { background: color-mix(in srgb, var(--text) 5%, transparent); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); font-weight: 650; }
+.struct-row[data-diff="true"] .struct-prop { color: var(--accent); font-weight: 750; }
+.struct-row .faint { display: inline-flex; align-items: center; gap: 4px; }
+.struct-el { font-weight: 620; }
+.struct-basis { grid-column: 1 / -1; font-size: 12px !important; line-height: 1.5; display: block !important; }
+.issue.warning { display: flex; gap: 8px; }
+
 /* Toast di atas segalanya */
 .toast { z-index: 95; max-width: calc(100% - 32px); text-align: center; }
 

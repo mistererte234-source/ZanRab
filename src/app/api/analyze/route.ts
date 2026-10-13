@@ -16,7 +16,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const { image, provider } = (await req.json()) as { image: string; provider: ProviderId };
+    const { image, provider, hint } = (await req.json()) as { image: string; provider: ProviderId; hint?: string | null };
     const m = /^data:(image\/(?:png|jpeg|webp|gif));base64,(.+)$/.exec(image ?? "");
     if (!m) return NextResponse.json({ error: "Format gambar tidak didukung (PNG/JPG/WEBP)" }, { status: 400 });
     // Key milik user (opsional) dikirim via header, tidak pernah disimpan di server
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       gemini: req.headers.get("x-gemini-key") || undefined,
       claude: req.headers.get("x-anthropic-key") || undefined,
     };
-    const result = await extractPlan(provider ?? "gemini", m[2], m[1], keys);
+    const result = await extractPlan(provider ?? "gemini", m[2], m[1], keys, typeof hint === "string" ? hint : null);
     return NextResponse.json({
       plan: result.plan,
       meta: { provider: result.provider, model: result.model, durationMs: result.durationMs, consensus: result.consensus },

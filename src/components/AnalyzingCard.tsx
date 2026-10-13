@@ -20,7 +20,9 @@ export function AnalyzingCard({
   error,
   onRetry,
   onOpenSettings,
+  label,
 }: {
+  label?: string | null;
   imageUrl: string | null;
   startedAt: number | null;
   error: string | null;
@@ -82,6 +84,7 @@ export function AnalyzingCard({
         ) : (
           <>
             <div className="col" style={{ gap: 4 }}>
+              {label && <span className="eyebrow">{label}</span>}
               <strong style={{ fontSize: 20, letterSpacing: "-0.02em" }}>AI sedang membaca denah</strong>
               <span className="faint" style={{ fontSize: 13.5 }}>
                 Biarkan halaman ini terbuka. Hasilnya bisa kamu koreksi di langkah berikutnya.

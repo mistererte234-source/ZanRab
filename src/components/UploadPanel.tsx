@@ -8,7 +8,7 @@ export function UploadPanel({
   onFile,
   busy,
   title = "Upload denah rumah",
-  hint = "Pastikan angka ukuran di denah terbaca jelas. JPG, PNG, atau WEBP.",
+  hint = "Foto, gambar (JPG/PNG/WEBP), atau PDF denah. PDF dari CAD dibaca langsung angka ukurannya; banyak halaman = banyak lantai.",
 }: {
   onFile: (file: File) => void;
   busy: boolean;
@@ -38,7 +38,7 @@ export function UploadPanel({
         e.preventDefault();
         setOver(false);
         const f = e.dataTransfer.files?.[0];
-        if (f && f.type.startsWith("image/")) onFile(f);
+        if (f && (f.type.startsWith("image/") || f.type === "application/pdf" || /\.pdf$/i.test(f.name))) onFile(f);
       }}
     >
       <div className="upload-icon" aria-hidden="true">
@@ -57,12 +57,12 @@ export function UploadPanel({
         </button>
         <button type="button" className="btn btn-lg" disabled={busy} onClick={() => fileRef.current?.click()}>
           <ImageUp size={18} />
-          Pilih File
+          Pilih File / PDF
         </button>
       </div>
       <div className="faint drop-hint">atau seret gambar denah ke sini</div>
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={pick} />
-      <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={pick} />
+      <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,application/pdf,.pdf" hidden onChange={pick} />
     </div>
   );
 }

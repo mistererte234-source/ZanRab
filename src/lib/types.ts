@@ -144,6 +144,11 @@ export interface ProjectParams {
   roundTo: number; // pembulatan total, mis. 1000
   /** MEP lanjutan; undefined = default */
   mep?: MepParams;
+  /** Bangunan bertingkat (multi-lantai). undefined = default */
+  upperSlabThickness?: number;
+  floorBeam?: { b: number; h: number };
+  /** Lebar tangga (m) */
+  stairWidth?: number;
 }
 
 /** Parameter MEP (Mekanikal, Elektrikal, Plumbing). Opsional: proyek lama belum punya → pakai default. */
@@ -261,6 +266,35 @@ export type TradeId = "kuli" | "kenek" | "batu" | "kayu" | "besi" | "cat" | "ins
 
 export type CrewCounts = Record<TradeId, number>;
 
+/** Pra-desain struktur (preliminary) — lihat lib/structure.ts */
+export interface StructureSettings {
+  fc: number; // MPa
+  fy: number; // MPa
+  system: "SRPMK" | "SRPMM";
+  occupancy: "hunian" | "publik";
+  /** daya dukung tanah izin (kPa) — dari sondir/uji tanah */
+  qa: number;
+  /** override geometri (null = dari denah) */
+  maxSpanOverride: number | null;
+  tributaryOverride: number | null;
+  roofType: "rangka_ringan" | "dak_beton";
+}
+
+/** Satu lantai bangunan: denah sendiri, hasil analisa sendiri */
+export interface Floor {
+  id: string;
+  name: string;
+  /** 0 = lantai dasar */
+  level: number;
+  plan: Plan | null;
+  imageDataUrl: string | null;
+  analyzeMeta: AnalyzeMeta | null;
+  /** Tinggi lantai-ke-lantai (m); undefined = parameter tinggi dinding */
+  height?: number;
+  /** Petunjuk teks dari PDF CAD (dimensi, label) untuk AI */
+  hint?: string;
+}
+
 /** Pengawas: hadir sepanjang proyek, tidak membatasi kecepatan */
 export interface SupervisorCounts {
   mandor: number;
@@ -310,6 +344,10 @@ export interface Project {
   offerValidityDays: number;
   paymentTerms: string;
   status: "draft" | "dikirim" | "deal";
+  /** Pengaturan pra-desain struktur */
+  structure?: StructureSettings;
+  /** Bangunan bertingkat: satu denah per lantai. undefined = satu lantai (pakai plan) */
+  floors?: Floor[];
   /** Pengaturan jadwal & tim (opsional: proyek lama belum punya) */
   schedule?: ScheduleSettings;
 }

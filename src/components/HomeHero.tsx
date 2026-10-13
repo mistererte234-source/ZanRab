@@ -3,13 +3,14 @@
 import { ChevronRight, Home as HomeIcon, Sparkles, Trash2 } from "lucide-react";
 import { UploadPanel } from "./UploadPanel";
 import type { Project } from "@/lib/types";
+import { anyPlan } from "@/lib/building";
 
 const STEP_NAMES = ["Upload", "Cek", "Parameter", "RAB", "Penawaran"];
 
 function projectStage(p: Project): number {
   if (p.status === "dikirim" || p.status === "deal") return 5;
-  if (p.plan) return 3;
-  if (p.imageDataUrl) return 2;
+  if (anyPlan(p)) return 3;
+  if (p.imageDataUrl || p.floors?.some((f) => f.imageDataUrl)) return 2;
   return 1;
 }
 
