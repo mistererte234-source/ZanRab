@@ -5,7 +5,7 @@
  */
 import { floorsOf } from "./building";
 import { mepOf } from "./defaults";
-import { suspectDoubleWetRooms } from "./planEdit";
+import { suspectDoubleWetRooms, wetRoomsWithoutDoor } from "./planEdit";
 import { roomLabels } from "./labels";
 import { computeStructure } from "./structure";
 import type { Floor, Plan, Project, Room } from "./types";
@@ -13,6 +13,7 @@ import { polygonArea } from "./geometry";
 
 export type AuditFix =
   | { kind: "split_rooms"; floorId: string; roomIds: string[] }
+  | { kind: "add_wet_doors"; floorId: string }
   | { kind: "retype_rooms"; floorId: string; roomIds: string[]; type: "kamar_mandi"; name: string }
   | { kind: "scale_outline"; floorId: string; width: number; depth: number }
   | { kind: "apply_structure" }
@@ -125,6 +126,18 @@ export function auditFloor(floor: Floor, multi: boolean): AuditIssue[] {
       floorId: floor.id,
       floorName: tag,
       message: `${kamar.length} kamar tetapi ${kmAfter} KM. Bila tiap kamar punya KM dalam, ada ${kamar.length - kmAfter} KM yang belum terbaca — cek di denah (klik ruang → ganti jenis / bagi).`,
+    });
+
+  // 2d. KM tanpa pintu → pintu PVC, kusen & bukaan dinding ikut kurang
+  const noDoor = wetRoomsWithoutDoor(plan);
+  if (noDoor.length && !fakeVoids.length)
+    out.push({
+      id: `${floor.id}:km-pintu`,
+      level: "warning",
+      floorId: floor.id,
+      floorName: tag,
+      message: `${noDoor.length} KM belum punya pintu di denah (${noDoor.slice(0, 6).map((r) => r.name).join(", ")}${noDoor.length > 6 ? ", …" : ""}). Pintu PVC & kusennya belum terhitung.`,
+      fix: { label: `Tambah ${noDoor.length} pintu PVC 70 cm`, action: { kind: "add_wet_doors", floorId: floor.id } },
     });
 
   // 3. Ukuran luar vs rantai dimensi

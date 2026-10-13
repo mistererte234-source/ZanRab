@@ -34,7 +34,8 @@ export function roomWallContact(room: Room, walls: Wall[]): number {
       const wy = (w.b.y - w.a.y) / wl;
       if (Math.abs(ux * wy - uy * wx) > 0.02) continue; // tidak sejajar
       const off = Math.abs((w.a.x - p.x) * -uy + (w.a.y - p.y) * ux);
-      if (Math.abs(off - w.thickness / 2) > 0.05) continue; // bukan muka dinding ini
+      // muka dinding: polygon di sisi dalam (off ≈ t/2) atau digambar di as dinding (off ≈ 0)
+      if (off > w.thickness / 2 + 0.05) continue;
       const s1 = (w.a.x - p.x) * ux + (w.a.y - p.y) * uy;
       const s2 = (w.b.x - p.x) * ux + (w.b.y - p.y) * uy;
       const lo = Math.max(0, Math.min(s1, s2) - w.thickness / 2);

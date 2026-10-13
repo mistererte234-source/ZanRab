@@ -245,7 +245,11 @@ export function computeStructure(project: Project): StructureResult | null {
 }
 
 /** Terapkan hasil pra-desain ke parameter RAB */
-export function structureToParams(r: StructureResult) {
+/**
+ * Ukuran pra-desain → parameter RAB. Jenis pondasi TIDAK diganti: pondasi dalam (strauss/bore pile) vs telapak
+ * ditentukan data tanah. Ukuran telapak hanya diterapkan bila proyek memang memakai footplat.
+ */
+export function structureToParams(r: StructureResult, currentFoundation?: string) {
   const m = (mm: number) => round(mm / 1000, 3);
   return {
     column: { b: m(r.column.b), h: m(r.column.h) },
@@ -253,7 +257,8 @@ export function structureToParams(r: StructureResult) {
     ringBeam: { b: m(r.ringBeam.b), h: m(r.ringBeam.h) },
     floorBeam: { b: m(r.beam.b), h: m(r.beam.h) },
     upperSlabThickness: r.slab ? m(r.slab.t) : undefined,
-    foundation: "footplat_batu_kali" as const,
-    pileCap: { w: r.footing.B, l: r.footing.B, t: m(r.footing.t) },
+    ...(currentFoundation === undefined || currentFoundation === "footplat_batu_kali"
+      ? { foundation: "footplat_batu_kali" as const, pileCap: { w: r.footing.B, l: r.footing.B, t: m(r.footing.t) } }
+      : {}),
   };
 }

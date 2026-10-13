@@ -23,7 +23,7 @@ import { FloorBar } from "@/components/FloorBar";
 import { AuditPanel } from "@/components/AuditPanel";
 import { RoomActions } from "@/components/RoomActions";
 import { auditProject, type AuditFix } from "@/lib/audit";
-import { scalePlan, splitRoom } from "@/lib/planEdit";
+import { addMissingWetDoors, scalePlan, splitRoom } from "@/lib/planEdit";
 import { computeStructure, structureToParams } from "@/lib/structure";
 import { mepOf } from "@/lib/defaults";
 import { PdfImportDialog, type PdfSelection } from "@/components/PdfImportDialog";
@@ -428,6 +428,14 @@ export default function Home() {
         setToast(`${fix.roomIds.length} blok KM dibagi jadi 2 bilik — cek posisi pintunya di denah`);
         return;
       }
+      case "add_wet_doors": {
+        const fl = floorsOf(currentProject).find((x) => x.id === fix.floorId);
+        if (!fl?.plan) return;
+        const plan = addMissingWetDoors(fl.plan);
+        updateFloor(pid, fix.floorId, { plan });
+        setToast(`${plan.openings.length - fl.plan.openings.length} pintu PVC ditambahkan — cek posisinya di denah`);
+        return;
+      }
       case "retype_rooms": {
         const fl = floorsOf(currentProject).find((x) => x.id === fix.floorId);
         if (!fl?.plan) return;
@@ -447,7 +455,7 @@ export default function Home() {
       case "apply_structure": {
         const r = computeStructure(currentProject);
         if (!r) return;
-        const sp = structureToParams(r);
+        const sp = structureToParams(r, currentProject.params.foundation);
         updateProject(pid, (p) => ({
           params: {
             ...p.params,
@@ -456,8 +464,7 @@ export default function Home() {
             ringBeam: sp.ringBeam,
             floorBeam: sp.floorBeam,
             ...(sp.upperSlabThickness ? { upperSlabThickness: sp.upperSlabThickness } : {}),
-            foundation: sp.foundation,
-            pileCap: sp.pileCap,
+            ...(sp.foundation ? { foundation: sp.foundation, pileCap: sp.pileCap } : {}),
           },
         }));
         setToast("Ukuran pra-desain SNI diterapkan — tetap verifikasi ke ahli struktur");

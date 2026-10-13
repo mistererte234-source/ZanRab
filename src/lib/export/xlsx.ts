@@ -27,7 +27,7 @@ export async function exportRabXlsx(project: Project, rab: RabResult, company: C
     ["Lokasi", project.location],
     ["Pemilik", project.client.name],
     ["Kontraktor", company.name],
-    ["Luas bangunan", `${rab.grossArea} m²`],
+    ["Luas bangunan", `${rab.grossArea.toLocaleString("id-ID", { maximumFractionDigits: 2 })} m²`],
     ["Mode harga", project.priceMode === "ahsp" ? "AHSP (analisa)" : "Borongan"],
   ];
   meta.forEach(([k, v], i) => {

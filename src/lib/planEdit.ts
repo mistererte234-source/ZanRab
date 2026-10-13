@@ -125,3 +125,45 @@ export const nearestWall = (plan: Plan, p: Point) =>
     const d = pointToSegment(p, w.a, w.b).d;
     return !best || d < best.d ? { id: w.id, d } : best;
   }, null);
+
+/** KM tanpa pintu (AI melewatkan simbol pintu) */
+export function wetRoomsWithoutDoor(plan: Plan): Room[] {
+  const doors = plan.openings.filter((o) => o.type === "door" || o.type === "passage");
+  return plan.rooms.filter((r) => r.type === "kamar_mandi" && openingsOnRoom(r, doors, 0.2).length === 0);
+}
+
+/**
+ * Tambah pintu PVC 0,7 m pada KM tanpa pintu: di tengah sisi yang berbatasan dengan ruang tetangga terdekat
+ * (kamar/selasar/dapur), bukan sisi dinding luar.
+ */
+export function addMissingWetDoors(plan: Plan): Plan {
+  const missing = wetRoomsWithoutDoor(plan);
+  if (!missing.length) return plan;
+  const added: Opening[] = [];
+  for (const r of missing) {
+    const b = bbox(r.polygon);
+    const edges = [
+      { mid: { x: (b.x0 + b.x1) / 2, y: b.y0 }, out: { x: 0, y: -1 }, len: b.x1 - b.x0 },
+      { mid: { x: (b.x0 + b.x1) / 2, y: b.y1 }, out: { x: 0, y: 1 }, len: b.x1 - b.x0 },
+      { mid: { x: b.x0, y: (b.y0 + b.y1) / 2 }, out: { x: -1, y: 0 }, len: b.y1 - b.y0 },
+      { mid: { x: b.x1, y: (b.y0 + b.y1) / 2 }, out: { x: 1, y: 0 }, len: b.y1 - b.y0 },
+    ];
+    const neighbourOf = (e: (typeof edges)[number]) => {
+      const probe = { x: e.mid.x + e.out.x * 0.4, y: e.mid.y + e.out.y * 0.4 };
+      return plan.rooms.find((o) => {
+        if (o.id === r.id) return false;
+        const ob = bbox(o.polygon);
+        return probe.x >= ob.x0 && probe.x <= ob.x1 && probe.y >= ob.y0 && probe.y <= ob.y1;
+      });
+    };
+    const rank = (e: (typeof edges)[number]) => {
+      const n = neighbourOf(e);
+      if (!n || e.len < 0.8) return 0;
+      return n.type === "kamar" ? 3 : n.type === "selasar" || n.type === "dapur" ? 2 : n.type === "kamar_mandi" ? 0 : 1;
+    };
+    const best = [...edges].sort((p, q) => rank(q) - rank(p))[0];
+    if (rank(best) === 0) continue;
+    added.push(attachOpening({ id: uid("d"), type: "door", wallId: null, at: { x: round(best.mid.x, 4), y: round(best.mid.y, 4) }, width: 0.7, height: 2.1, leaves: 1, material: "pvc", label: `Pintu ${r.name}` }, plan.walls));
+  }
+  return { ...plan, openings: [...plan.openings, ...added] };
+}

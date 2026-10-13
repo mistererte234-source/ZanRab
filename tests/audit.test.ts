@@ -121,3 +121,34 @@ describe("audit: VOID salah label", () => {
     expect(it.fix?.action).toMatchObject({ kind: "retype_rooms", roomIds: ["v1"] });
   });
 });
+
+import { addMissingWetDoors, wetRoomsWithoutDoor } from "../src/lib/planEdit";
+import { structureToParams, computeStructure } from "../src/lib/structure";
+import { roomWallContact } from "../src/lib/takeoff";
+
+describe("perbaikan RAB kos", () => {
+  it("keramik dinding KM tetap terhitung bila polygon ruang digambar di as dinding", () => {
+    const p = kosStrip();
+    const km = p.rooms[1];
+    const atAxis = { ...km, polygon: rect(0.05, 2.65, 3.1, 1.5) }; // tepat di as dinding
+    expect(roomWallContact(atAxis, p.walls)).toBeGreaterThan(8);
+    expect(roomWallContact(km, p.walls)).toBeGreaterThan(8);
+  });
+
+  it("KM tanpa pintu → pintu PVC 0,7 m di sisi yang berbatasan dengan kamar", () => {
+    const p = { ...kosStrip(), openings: [] };
+    expect(wetRoomsWithoutDoor(p).length).toBe(1);
+    const f = addMissingWetDoors(p);
+    const d = f.openings.filter((o) => o.type === "door");
+    expect(d.length).toBe(1);
+    expect(d[0].material).toBe("pvc");
+    expect(wetRoomsWithoutDoor(f).length).toBe(0);
+  });
+
+  it("terapkan pra-desain tidak mengganti pondasi strauss jadi telapak", () => {
+    const f = (l: number): Floor => ({ id: `f${l}`, name: `Lantai ${l + 1}`, level: l, plan: samplePlan(), imageDataUrl: null, analyzeMeta: null });
+    const r = computeStructure(newProject({ floors: [f(0), f(1)], params: DEFAULT_PARAMS }))!;
+    expect(structureToParams(r, "strauss_kumbung").foundation).toBeUndefined();
+    expect(structureToParams(r, "footplat_batu_kali").foundation).toBe("footplat_batu_kali");
+  });
+});

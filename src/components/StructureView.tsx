@@ -41,13 +41,14 @@ export function StructureView({
       prop: `${r.footing.B}×${r.footing.B} m, t ${r.footing.t}`,
       now: P.foundation === "strauss_kumbung" ? "strauss + pile cap" : `${P.pileCap.w}×${P.pileCap.l} m, t ${mm(P.pileCap.t)}`,
       basis: r.footing.formula,
-      differs: P.foundation !== "footplat_batu_kali" || P.pileCap.w !== r.footing.B || mm(P.pileCap.t) !== r.footing.t,
+      // pondasi dalam (strauss) tidak diganti otomatis — jenis pondasi ditentukan data tanah
+      differs: P.foundation === "footplat_batu_kali" && (P.pileCap.w !== r.footing.B || mm(P.pileCap.t) !== r.footing.t),
     },
   ];
   const anyDiff = rows.some((x) => x.differs);
 
   const apply = () => {
-    const sp = structureToParams(r);
+    const sp = structureToParams(r, project.params.foundation);
     onUpdateProject((p) => ({
       params: {
         ...p.params,
@@ -56,8 +57,7 @@ export function StructureView({
         ringBeam: sp.ringBeam,
         floorBeam: sp.floorBeam,
         ...(sp.upperSlabThickness ? { upperSlabThickness: sp.upperSlabThickness } : {}),
-        foundation: sp.foundation,
-        pileCap: sp.pileCap,
+        ...(sp.foundation ? { foundation: sp.foundation, pileCap: sp.pileCap } : {}),
       },
     }));
   };
