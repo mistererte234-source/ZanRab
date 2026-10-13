@@ -80,6 +80,12 @@ describe("edit denah & audit", () => {
     const s = scalePlan(p, 7.25, 20.8);
     expect(s.walls[0].b.x).toBeCloseTo(3.15 * (7.25 / 7.4), 3);
     expect(outlineFromChains(s)).toBeNull();
+    // rantai tambahan (parsial / sama dengan outline) tidak boleh membatalkan saran
+    const extra: Plan = { ...p, chains: [...p.chains, { side: "left", segments: [8, 12.95], total: 20.95 }, { side: "top", segments: [3, 1.25, 3], total: 7.25 }] };
+    expect(outlineFromChains(extra)).toEqual({ width: 7.25, depth: 20.8 });
+    // hanya rantai yang beda > 10% (salah baca) → tidak disarankan
+    const wild: Plan = { ...p, chains: [{ side: "top", segments: [3], total: 3 }] };
+    expect(outlineFromChains(wild)).toBeNull();
   });
 
   it("struktur rumah 1 lantai pada gedung 3 lantai → error + perbaikan; septic standar untuk ≥6 kamar → warning", () => {

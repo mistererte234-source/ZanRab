@@ -97,20 +97,26 @@ export function auditFloor(floor: Floor, multi: boolean): AuditIssue[] {
   return out;
 }
 
-/** Ukuran luar dari rantai dimensi bila rantai sisi berlawanan sepakat & berbeda dari outline */
+/**
+ * Ukuran luar dari rantai dimensi: untuk tiap arah, ambil total rantai yang BERBEDA dari outline
+ * (yang paling sering muncul; segmen konsisten diutamakan). Sama dengan peringatan "Total rantai … beda" di panel Perlu dicek.
+ */
 export function outlineFromChains(plan: Plan): { width: number; depth: number } | null {
-  const agree = (sides: string[]) => {
-    const t = plan.chains.filter((c) => sides.includes(c.side) && c.total > 0).map((c) => c.total);
-    if (!t.length) return null;
-    return Math.max(...t) - Math.min(...t) <= EPS ? t[0] : null;
+  const pick = (sides: string[], cur: number) => {
+    const cands = plan.chains
+      .filter((c) => sides.includes(c.side) && c.total > 0 && Math.abs(c.total - cur) > EPS && Math.abs(c.total / cur - 1) <= 0.1)
+      .map((c) => ({ total: Math.round(c.total * 1000) / 1000, ok: Math.abs(c.segments.reduce((a, x) => a + x, 0) - c.total) <= EPS }));
+    if (!cands.length) return cur;
+    const score = new Map<number, number>();
+    for (const c of cands) score.set(c.total, (score.get(c.total) ?? 0) + (c.ok ? 2 : 1));
+    // jangan ubah bila ada rantai lain yang justru sama dengan outline dan lebih banyak
+    const same = plan.chains.filter((c) => sides.includes(c.side) && Math.abs(c.total - cur) <= EPS).length * 2;
+    const [best, sc] = [...score.entries()].sort((x, y) => y[1] - x[1])[0];
+    return sc >= same ? best : cur;
   };
-  const w = agree(["top", "bottom"]);
-  const d = agree(["left", "right"]);
-  const width = w ?? plan.outline.width;
-  const depth = d ?? plan.outline.depth;
+  const width = pick(["top", "bottom"], plan.outline.width);
+  const depth = pick(["left", "right"], plan.outline.depth);
   if (Math.abs(width - plan.outline.width) <= EPS && Math.abs(depth - plan.outline.depth) <= EPS) return null;
-  // jangan menskala bila beda terlalu jauh (kemungkinan rantai salah baca)
-  if (Math.abs(width / plan.outline.width - 1) > 0.1 || Math.abs(depth / plan.outline.depth - 1) > 0.1) return null;
   return { width, depth };
 }
 
